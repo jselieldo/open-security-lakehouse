@@ -78,3 +78,35 @@ class InvestigationResponse(BaseModel):
     returned_count: int
     duration_ms: float
     events: list[dict[str, Any]]
+
+
+class DetectionRuleResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    severity: str
+    enabled: bool
+    schedule_minutes: int
+    threshold: int
+    query: InvestigationRequest
+
+
+class DetectionRunResponse(BaseModel):
+    run_id: str
+    rule_id: str
+    status: str
+    matched_count: int
+    alert_created: bool
+    duration_ms: float
+    completed_at: str | None = None
+
+
+class AlertResponse(BaseModel):
+    alert_id: str
+    rule_id: str
+    title: str
+    severity: str
+    status: str
+    event_count: int
+    evidence_object_key: str
+    created_at: str

@@ -1,0 +1,10 @@
+id: high-severity-events
+title: High severity security events
+description: Detects normalized security events with severity 4 or greater.
+severity: high
+enabled: true
+schedule_minutes: 15
+threshold: 1
+query:
+  min_severity: 4
+  limit: 1000

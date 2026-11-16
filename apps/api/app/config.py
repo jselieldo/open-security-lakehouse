@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     s3_secret_key: SecretStr
     s3_bucket: str = "osl-security-data"
     max_batch_events: int = Field(default=1000, ge=1, le=10000)
+    detection_rules_dir: str = "/app/detections/rules"
+    detection_scheduler_enabled: bool = True
 
 
 @lru_cache

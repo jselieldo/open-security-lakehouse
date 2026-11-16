@@ -1,4 +1,4 @@
-.PHONY: install test lint config up down logs smoke smoke-m2 smoke-m3 ps
+.PHONY: install test lint config up down logs smoke smoke-m2 smoke-m3 smoke-m4 ps
 
 install:
 	python3 -m venv .venv
@@ -33,4 +33,7 @@ smoke-m2:
 
 smoke-m3:
 	set -a; . ./.env; set +a; ./scripts/milestone3-smoke-test.sh
+
+smoke-m4:
+	set -a; . ./.env; set +a; ./scripts/milestone4-smoke-test.sh
 

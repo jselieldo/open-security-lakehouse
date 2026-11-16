@@ -1,0 +1,120 @@
+from datetime import UTC, datetime
+from types import SimpleNamespace
+
+from app.database import Alert, Base
+from app.detection import DetectionRule, execute_rule, list_alerts, load_rules
+from app.schemas import InvestigationRequest, InvestigationResponse
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
+
+
+def rule() -> DetectionRule:
+    return DetectionRule(
+        id="high-events",
+        title="High events",
+        description="Test rule",
+        severity="high",
+        threshold=1,
+        query=InvestigationRequest(min_severity=4),
+    )
+
+
+def investigation_result() -> InvestigationResponse:
+    now = datetime.now(UTC)
+    return InvestigationResponse(
+        query_engine="duckdb",
+        scanned_objects=1,
+        returned_count=1,
+        duration_ms=1.0,
+        events=[
+            {
+                "event_id": "evt-high",
+                "source": "linux",
+                "event_time": now,
+                "ingested_at": now,
+                "severity_id": 5,
+            }
+        ],
+    )
+
+
+def test_rule_loader_reads_yaml(tmp_path, monkeypatch) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    (rules_dir / "rule.yaml").write_text(
+        """
+id: test-rule
+title: Test rule
+description: Test description
+severity: medium
+enabled: true
+schedule_minutes: 5
+threshold: 1
+query:
+  source: linux
+  min_severity: 3
+""".strip()
+    )
+    monkeypatch.setattr(
+        "app.detection.get_settings",
+        lambda: SimpleNamespace(detection_rules_dir=str(rules_dir)),
+    )
+    rules = load_rules()
+    assert len(rules) == 1
+    assert rules[0].id == "test-rule"
+    assert rules[0].query.source == "linux"
+
+
+def test_detection_creates_alert_and_evidence(monkeypatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    objects = {}
+    monkeypatch.setattr("app.detection.investigate", lambda _query: investigation_result())
+    monkeypatch.setattr(
+        "app.detection.put_object",
+        lambda key, body, content_type: objects.update({key: (body, content_type)}),
+    )
+    with Session(engine, expire_on_commit=False) as db:
+        result = execute_rule(rule(), db)
+        alert = db.scalar(select(Alert))
+
+    assert result.status == "completed"
+    assert result.matched_count == 1
+    assert result.alert_created is True
+    assert alert is not None
+    assert alert.evidence_object_key in objects
+    assert objects[alert.evidence_object_key][1] == "application/json"
+
+
+def test_detection_deduplicates_same_evidence(monkeypatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr("app.detection.investigate", lambda _query: investigation_result())
+    monkeypatch.setattr("app.detection.put_object", lambda *_args: None)
+    with Session(engine, expire_on_commit=False) as db:
+        first = execute_rule(rule(), db)
+        second = execute_rule(rule(), db)
+        alerts = list_alerts(db)
+
+    assert first.alert_created is True
+    assert second.alert_created is False
+    assert len(alerts) == 1
+
+
+def test_detection_below_threshold_does_not_alert(monkeypatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    empty = InvestigationResponse(
+        query_engine="duckdb",
+        scanned_objects=1,
+        returned_count=0,
+        duration_ms=1.0,
+        events=[],
+    )
+    monkeypatch.setattr("app.detection.investigate", lambda _query: empty)
+    with Session(engine, expire_on_commit=False) as db:
+        result = execute_rule(rule(), db)
+        alerts = list_alerts(db)
+
+    assert result.alert_created is False
+    assert alerts == []

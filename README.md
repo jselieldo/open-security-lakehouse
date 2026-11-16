@@ -1,6 +1,6 @@
 # Open Security Lakehouse
 
-Milestone 3 adds controlled historical investigations with DuckDB to the executable first-data pipeline. The platform provides a FastAPI control plane, PostgreSQL batch metadata, SeaweedFS object storage, raw-event preservation, initial OCSF normalization, Parquet output, quarantine, idempotency, and searches by IP, time, source, and severity.
+Milestone 4 adds detection-as-code, scheduled rule execution, deduplicated alerts, and immutable evidence artifacts to the security lakehouse. The existing pipeline continues to provide raw preservation, OCSF normalization, Parquet, quarantine, idempotent batches, and DuckDB investigations.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -48,6 +48,7 @@ curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
 ./scripts/milestone2-smoke-test.sh
 docker compose exec -T api python - < scripts/verify-milestone2-storage.py
 ./scripts/milestone3-smoke-test.sh
+./scripts/milestone4-smoke-test.sh
 ```
 
 Expected readiness response:
@@ -104,6 +105,23 @@ curl --fail \
 
 The API lists matching Parquet objects through the S3 contract, loads their Arrow tables, and executes a parameterized DuckDB query. The response includes scanned object count, duration, and matching events.
 
+## Run detections and inspect alerts
+
+Rules live under `detections/rules/` as reviewed YAML files. List and run them with:
+
+```bash
+curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
+  http://127.0.0.1:8000/api/v1/detections/rules
+
+curl --fail -X POST -H "Authorization: Bearer $OSL_API_TOKEN" \
+  http://127.0.0.1:8000/api/v1/detections/rules/high-severity-events/run
+
+curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
+  http://127.0.0.1:8000/api/v1/alerts
+```
+
+Enabled rules run on their configured interval inside the single API process. Matching event identifiers form a deterministic alert fingerprint, preventing repeated runs from generating duplicate alerts. Full evidence is written under `artifacts/detection-evidence/` and the alert metadata is stored in PostgreSQL.
+
 ## Operations
 
 ```bash
@@ -130,4 +148,4 @@ See [architecture overview](docs/architecture/overview.md) and [ADR 0001](docs/a
 
 ## Next milestone
 
-Milestone 4 adds detection-as-code, scheduled rules, alerts, and evidence linked to the immutable lake objects.
+Milestone 5 adds the first web console for searches, alerts, evidence, and operational status.

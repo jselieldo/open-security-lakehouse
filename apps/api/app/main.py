@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .database import check_database, get_db, initialize_database
+from .detection import execute_rule, get_rule, list_alerts, load_rules
 from .ingestion import (
     BatchConflictError,
     BatchTooLargeError,
@@ -11,8 +12,12 @@ from .ingestion import (
     ingest_batch,
 )
 from .investigation import investigate
+from .scheduler import start_scheduler, stop_scheduler
 from .schemas import (
+    AlertResponse,
     BatchStatusResponse,
+    DetectionRuleResponse,
+    DetectionRunResponse,
     IngestionRequest,
     IngestionResponse,
     InvestigationRequest,
@@ -26,12 +31,14 @@ from .storage import check_storage, ensure_bucket
 async def lifespan(_: FastAPI):
     initialize_database()
     ensure_bucket()
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.3.0",
+    version="0.4.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -62,7 +69,7 @@ def ready() -> dict[str, str]:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_api_token)], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "3", "version": "0.3.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "4", "version": "0.4.0"}
 
 
 @app.post(
@@ -106,3 +113,42 @@ def read_ingestion_batch(batch_id: str, db: Session = Depends(get_db)) -> BatchS
 )
 def search_security_events(payload: InvestigationRequest) -> InvestigationResponse:
     return investigate(payload)
+
+
+@app.get(
+    "/api/v1/detections/rules",
+    response_model=list[DetectionRuleResponse],
+    dependencies=[Depends(require_api_token)],
+    tags=["detections"],
+)
+def read_detection_rules() -> list[DetectionRuleResponse]:
+    return [DetectionRuleResponse.model_validate(rule.model_dump()) for rule in load_rules()]
+
+
+@app.post(
+    "/api/v1/detections/rules/{rule_id}/run",
+    response_model=DetectionRunResponse,
+    dependencies=[Depends(require_api_token)],
+    tags=["detections"],
+)
+def run_detection_rule(rule_id: str, db: Session = Depends(get_db)) -> DetectionRunResponse:
+    rule = get_rule(rule_id)
+    if rule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="rule not found")
+    if not rule.enabled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="rule is disabled")
+    return execute_rule(rule, db)
+
+
+@app.get(
+    "/api/v1/alerts",
+    response_model=list[AlertResponse],
+    dependencies=[Depends(require_api_token)],
+    tags=["alerts"],
+)
+def read_alerts(limit: int = 100, db: Session = Depends(get_db)) -> list[AlertResponse]:
+    if limit < 1 or limit > 1000:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid limit"
+        )
+    return list_alerts(db, limit)

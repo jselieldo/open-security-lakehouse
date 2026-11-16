@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, create_engine, text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from .config import get_settings
@@ -39,6 +39,38 @@ class IngestionBatch(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DetectionRun(Base):
+    __tablename__ = "detection_runs"
+
+    run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    rule_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    matched_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    alert_created: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    duration_ms: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    error_message: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    alert_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    rule_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    event_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    evidence_object_key: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
 
 
 def build_engine():
