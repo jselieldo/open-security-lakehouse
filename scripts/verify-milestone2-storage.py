@@ -2,7 +2,6 @@
 import io
 
 import pyarrow.parquet as pq
-
 from app.config import get_settings
 from app.storage import get_s3_client
 
