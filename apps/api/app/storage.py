@@ -47,6 +47,26 @@ def list_object_keys(prefix: str) -> list[str]:
     return keys
 
 
+def lake_storage_stats() -> dict[str, tuple[int, int]]:
+    client = get_s3_client()
+    bucket = get_settings().s3_bucket
+    stats: dict[str, list[int]] = {
+        "raw": [0, 0],
+        "normalized": [0, 0],
+        "quarantine": [0, 0],
+        "artifacts": [0, 0],
+        "other": [0, 0],
+    }
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket):
+        for item in page.get("Contents", []):
+            area = item["Key"].split("/", 1)[0]
+            target = stats.get(area, stats["other"])
+            target[0] += 1
+            target[1] += int(item.get("Size", 0))
+    return {area: (values[0], values[1]) for area, values in stats.items()}
+
+
 def get_object_bytes(key: str) -> bytes:
     response = get_s3_client().get_object(Bucket=get_settings().s3_bucket, Key=key)
     return response["Body"].read()

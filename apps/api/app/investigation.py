@@ -5,6 +5,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from .metrics import INVESTIGATION_DURATION
 from .schemas import InvestigationRequest, InvestigationResponse
 from .storage import get_object_bytes, list_object_keys
 
@@ -36,6 +37,7 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
 
     events = result.to_pylist()
     duration_ms = round((perf_counter() - started) * 1000, 3)
+    INVESTIGATION_DURATION.observe(duration_ms / 1000)
     return InvestigationResponse(
         query_engine="duckdb",
         scanned_objects=len(keys),

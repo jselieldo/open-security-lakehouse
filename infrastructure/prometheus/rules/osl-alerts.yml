@@ -1,0 +1,53 @@
+groups:
+  - name: osl-platform
+    rules:
+      - alert: OSLComponentDown
+        expr: up{job=~"osl-api|vector"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "OSL component {{ $labels.job }} is unavailable"
+          description: "Prometheus could not scrape {{ $labels.instance }} for two minutes."
+
+      - alert: OSLDependencyDown
+        expr: osl_dependency_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "OSL dependency {{ $labels.dependency }} is unavailable"
+
+      - alert: OSLIngestionFailure
+        expr: increase(osl_ingestion_batches_total{status="failed"}[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "An OSL ingestion batch failed"
+          description: "Source {{ $labels.source }} recorded a failed batch in the last 10 minutes."
+
+      - alert: OSLHighQuarantineRatio
+        expr: |
+          sum(rate(osl_ingestion_events_total{outcome="quarantined"}[15m]))
+          /
+          clamp_min(sum(rate(osl_ingestion_events_total[15m])), 0.001) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 20% of recently ingested events are quarantined"
+
+      - alert: OSLMetricsStorageRefreshFailure
+        expr: increase(osl_metrics_refresh_failures_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "OSL could not refresh object-storage metrics"
+
+      - alert: VectorDroppedEvents
+        expr: increase(vector_component_discarded_events_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Vector discarded events"
+          description: "Component {{ $labels.component_id }} discarded events in the last 10 minutes."

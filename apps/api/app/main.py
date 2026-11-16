@@ -1,10 +1,11 @@
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
+from time import perf_counter
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -33,6 +34,13 @@ from .ingestion import (
     vector_events_to_request,
 )
 from .investigation import investigate
+from .metrics import (
+    DEPENDENCY_UP,
+    HTTP_DURATION,
+    HTTP_REQUESTS,
+    METRICS_REFRESH_FAILURES,
+    render_metrics,
+)
 from .scheduler import start_scheduler, stop_scheduler
 from .schemas import (
     AlertResponse,
@@ -49,7 +57,7 @@ from .schemas import (
     UserResponse,
 )
 from .security import Principal, get_current_principal, require_roles
-from .storage import check_storage, ensure_bucket
+from .storage import check_storage, ensure_bucket, lake_storage_stats
 
 
 @asynccontextmanager
@@ -62,12 +70,29 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.7.0",
+    version="0.8.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def observe_http(request: Request, call_next):
+    started = perf_counter()
+    response = await call_next(request)
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", "unmatched")
+    HTTP_REQUESTS.labels(
+        method=request.method,
+        route=route_path,
+        status=str(response.status_code),
+    ).inc()
+    HTTP_DURATION.labels(method=request.method, route=route_path).observe(
+        perf_counter() - started
+    )
+    return response
 
 
 @app.get("/health/live", tags=["health"])
@@ -81,7 +106,9 @@ def ready() -> dict[str, str]:
     for name, check in (("database", check_database), ("object_storage", check_storage)):
         try:
             check()
+            DEPENDENCY_UP.labels(dependency=name).set(1)
         except Exception:
+            DEPENDENCY_UP.labels(dependency=name).set(0)
             failures.append(name)
     if failures:
         raise HTTPException(
@@ -89,6 +116,16 @@ def ready() -> dict[str, str]:
             detail={"status": "not_ready", "failed_dependencies": failures},
         )
     return {"status": "ready", "database": "ok", "object_storage": "ok"}
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    try:
+        stats = lake_storage_stats()
+    except Exception:
+        METRICS_REFRESH_FAILURES.inc()
+        stats = None
+    return Response(content=render_metrics(stats), media_type="text/plain; version=0.0.4")
 
 
 @app.get("/api/v1/auth/config", response_model=AuthConfigResponse, tags=["authentication"])
@@ -103,7 +140,7 @@ def auth_config() -> AuthConfigResponse:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_roles("viewer"))], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "7", "version": "0.7.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "8", "version": "0.8.0"}
 
 
 @app.get("/api/v1/users/me", response_model=UserResponse, tags=["users"])
@@ -281,7 +318,7 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     )
     runs = db.scalar(select(func.count()).select_from(DetectionRun)) or 0
     return DashboardSummary(
-        milestone="7",
+        milestone="8",
         platform_status="operational",
         ingestion_batches=batches,
         accepted_events=accepted,

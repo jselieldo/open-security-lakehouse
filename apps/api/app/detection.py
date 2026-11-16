@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Alert, DetectionRun
 from .investigation import investigate
+from .metrics import DETECTION_DURATION, DETECTION_RUNS
 from .schemas import AlertResponse, DetectionRunResponse, InvestigationRequest
 from .storage import get_object_bytes, put_object
 
@@ -64,6 +65,8 @@ def execute_rule(rule: DetectionRule, db: Session) -> DetectionRunResponse:
         run.completed_at = datetime.now(UTC)
         db.commit()
         db.refresh(run)
+        DETECTION_RUNS.labels(rule_id=rule.id, status="completed").inc()
+        DETECTION_DURATION.labels(rule_id=rule.id).observe(run.duration_ms / 1000)
         return _run_response(run)
     except Exception as exc:
         run.status = "failed"
@@ -71,6 +74,8 @@ def execute_rule(rule: DetectionRule, db: Session) -> DetectionRunResponse:
         run.error_message = type(exc).__name__
         run.completed_at = datetime.now(UTC)
         db.commit()
+        DETECTION_RUNS.labels(rule_id=rule.id, status="failed").inc()
+        DETECTION_DURATION.labels(rule_id=rule.id).observe(run.duration_ms / 1000)
         raise
 
 

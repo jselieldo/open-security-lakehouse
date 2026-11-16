@@ -11,6 +11,9 @@ mode = "tcp"
 max_length = 102400
 permit_origin = ["__SYSLOG_ALLOWED_CIDR__"]
 
+[sources.internal_metrics]
+type = "internal_metrics"
+
 [transforms.tag_source]
 type = "remap"
 inputs = ["linux_syslog"]
@@ -45,3 +48,8 @@ timeout_secs = 2
 type = "disk"
 max_size = 268435488
 when_full = "block"
+
+[sinks.prometheus_exporter]
+type = "prometheus_exporter"
+inputs = ["internal_metrics"]
+address = "0.0.0.0:9598"

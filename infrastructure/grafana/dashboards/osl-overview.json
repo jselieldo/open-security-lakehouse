@@ -1,0 +1,26 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {"type":"stat","title":"API disponível","id":1,"gridPos":{"h":4,"w":4,"x":0,"y":0},"targets":[{"expr":"up{job=\"osl-api\"}","refId":"A"}],"fieldConfig":{"defaults":{"mappings":[{"options":{"0":{"text":"OFFLINE","color":"red"},"1":{"text":"ONLINE","color":"green"}},"type":"value"}],"color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"green","value":1}]}}}},
+    {"type":"stat","title":"Vector disponível","id":2,"gridPos":{"h":4,"w":4,"x":4,"y":0},"targets":[{"expr":"up{job=\"vector\"}","refId":"A"}],"fieldConfig":{"defaults":{"mappings":[{"options":{"0":{"text":"OFFLINE","color":"red"},"1":{"text":"ONLINE","color":"green"}},"type":"value"}],"color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"green","value":1}]}}}},
+    {"type":"stat","title":"Eventos aceitos (total)","id":3,"gridPos":{"h":4,"w":4,"x":8,"y":0},"targets":[{"expr":"sum(osl_ingestion_events_total{outcome=\"accepted\"})","refId":"A"}]},
+    {"type":"stat","title":"Eventos em quarentena","id":4,"gridPos":{"h":4,"w":4,"x":12,"y":0},"targets":[{"expr":"sum(osl_ingestion_events_total{outcome=\"quarantined\"})","refId":"A"}]},
+    {"type":"stat","title":"Objetos no lake","id":5,"gridPos":{"h":4,"w":4,"x":16,"y":0},"targets":[{"expr":"sum(osl_lake_objects)","refId":"A"}]},
+    {"type":"stat","title":"Tamanho do lake","id":6,"gridPos":{"h":4,"w":4,"x":20,"y":0},"targets":[{"expr":"sum(osl_lake_bytes)","refId":"A"}],"fieldConfig":{"defaults":{"unit":"bytes"}}},
+    {"type":"timeseries","title":"Taxa de ingestão por fonte","id":7,"gridPos":{"h":8,"w":12,"x":0,"y":4},"targets":[{"expr":"sum by (source) (rate(osl_ingestion_events_total{outcome=\"accepted\"}[5m]))","legendFormat":"{{source}}","refId":"A"}],"fieldConfig":{"defaults":{"unit":"eps"}}},
+    {"type":"timeseries","title":"Latência p95","id":8,"gridPos":{"h":8,"w":12,"x":12,"y":4},"targets":[{"expr":"histogram_quantile(0.95, sum by (le) (rate(osl_ingestion_duration_seconds_bucket[5m])))","legendFormat":"ingestão","refId":"A"},{"expr":"histogram_quantile(0.95, sum by (le) (rate(osl_investigation_duration_seconds_bucket[5m])))","legendFormat":"investigação","refId":"B"}],"fieldConfig":{"defaults":{"unit":"s"}}},
+    {"type":"timeseries","title":"Requisições da API","id":9,"gridPos":{"h":8,"w":12,"x":0,"y":12},"targets":[{"expr":"sum by (route, status) (rate(osl_http_requests_total[5m]))","legendFormat":"{{route}} {{status}}","refId":"A"}]},
+    {"type":"timeseries","title":"Eventos recebidos pelo Vector","id":10,"gridPos":{"h":8,"w":12,"x":12,"y":12},"targets":[{"expr":"sum by (component_id) (rate(vector_component_received_events_total[5m]))","legendFormat":"{{component_id}}","refId":"A"}]}
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["osl", "security-lakehouse"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "Open Security Lakehouse — Operações",
+  "uid": "osl-operations",
+  "version": 1
+}

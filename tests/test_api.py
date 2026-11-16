@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 import pytest
-from app.main import auth_config, live, ready, system_info
+from app.main import auth_config, live, metrics, ready, system_info
 from app.security import require_api_token
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -22,7 +22,7 @@ def test_protected_route_accepts_valid_token() -> None:
         scheme="Bearer", credentials="test-token-with-at-least-32-characters"
     )
     assert require_api_token(credentials) is None
-    assert system_info()["milestone"] == "7"
+    assert system_info()["milestone"] == "8"
 
 
 def test_auth_config_is_public_and_contains_no_secret() -> None:
@@ -52,3 +52,10 @@ def test_readiness_reports_failure_without_leaking_exception() -> None:
     assert error.value.status_code == 503
     assert "secret details" not in str(error.value.detail)
     assert error.value.detail["failed_dependencies"] == ["database"]
+
+
+def test_metrics_endpoint_exposes_lake_and_dependency_metrics() -> None:
+    with patch("app.main.lake_storage_stats", return_value={"raw": (2, 512)}):
+        response = metrics()
+    assert b'osl_lake_objects{area="raw"} 2.0' in response.body
+    assert b'osl_lake_bytes{area="raw"} 512.0' in response.body

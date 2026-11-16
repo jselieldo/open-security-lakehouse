@@ -2,6 +2,7 @@ import io
 import json
 from datetime import UTC, datetime
 from hashlib import sha256
+from time import perf_counter
 from typing import Any
 
 import pyarrow as pa
@@ -11,17 +12,20 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import IngestionBatch
+from .metrics import INGESTION_BATCHES, INGESTION_DURATION, INGESTION_EVENTS
 from .normalization import normalize_events
 from .schemas import BatchStatusResponse, IngestionRequest, IngestionResponse
 from .storage import put_object
 
 
 def ingest_batch(payload: IngestionRequest, db: Session) -> IngestionResponse:
+    started = perf_counter()
     payload_hash = _payload_hash(payload)
     existing = db.get(IngestionBatch, payload.batch_id)
     if existing:
         if existing.source != payload.source or existing.payload_hash != payload_hash:
             raise BatchConflictError("batch_id was already used with different content")
+        INGESTION_BATCHES.labels(source=payload.source, status="replayed").inc()
         return _response(existing, idempotent_replay=True)
 
     if len(payload.events) > get_settings().max_batch_events:
@@ -87,12 +91,18 @@ def ingest_batch(payload: IngestionRequest, db: Session) -> IngestionResponse:
         batch.completed_at = datetime.now(UTC)
         db.commit()
         db.refresh(batch)
+        INGESTION_BATCHES.labels(source=payload.source, status=batch.status).inc()
+        INGESTION_EVENTS.labels(source=payload.source, outcome="accepted").inc(len(normalized))
+        INGESTION_EVENTS.labels(source=payload.source, outcome="quarantined").inc(len(rejected))
+        INGESTION_DURATION.labels(source=payload.source).observe(perf_counter() - started)
         return _response(batch)
     except Exception as exc:
         batch.status = "failed"
         batch.error_message = type(exc).__name__
         batch.completed_at = datetime.now(UTC)
         db.commit()
+        INGESTION_BATCHES.labels(source=payload.source, status="failed").inc()
+        INGESTION_DURATION.labels(source=payload.source).observe(perf_counter() - started)
         raise
 
 

@@ -1,6 +1,6 @@
 # Open Security Lakehouse
 
-Milestone 7 adds the first real data collector: Vector receives Linux/syslog over TCP, applies backpressure through a durable disk buffer, and forwards batches to a machine-authenticated ingestion endpoint. Milestone 6 OIDC, users, RBAC, audit, and Alembic remain the control-plane security foundation.
+Milestone 8 adds Prometheus metrics, operational alert rules, and a provisioned Grafana dashboard. It measures API traffic, ingestion throughput and outcomes, investigation/detection latency, dependency health, Vector flow, and object-lake size.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -50,6 +50,7 @@ docker compose exec -T api python - < scripts/verify-milestone2-storage.py
 docker compose exec -T api python - < scripts/verify-milestone4-evidence.py
 ./scripts/milestone6-smoke-test.sh
 ./scripts/milestone7-smoke-test.sh
+./scripts/milestone8-smoke-test.sh
 ```
 
 Expected readiness response:
@@ -90,6 +91,23 @@ logger -p auth.warning "OSL syslog validation"
 ```
 
 Vector stores pending delivery data in the `vector-data` volume. Its dedicated bearer credential maps to an `ingestor`-only machine principal; it cannot read investigations, alerts, users, or audit logs. The `/api/v1/ingestion/vector` adapter generates deterministic batch and event identifiers so HTTP retries remain idempotent.
+
+## Observe the platform
+
+Prometheus is available on `http://127.0.0.1:9090` and Grafana on `http://127.0.0.1:3000`. From another computer, add both ports to the SSH tunnel:
+
+```bash
+ssh \
+  -L 8000:127.0.0.1:8000 \
+  -L 8080:127.0.0.1:8080 \
+  -L 9090:127.0.0.1:9090 \
+  -L 3000:127.0.0.1:3000 \
+  homelab-lan
+```
+
+Sign in to Grafana with `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from the homelab `.env`. The **OSL / Open Security Lakehouse — Operações** dashboard and Prometheus datasource are provisioned from Git and are read-only in the UI.
+
+Prometheus retains up to 15 days or 2 GB, whichever is reached first. Initial alert rules cover API/Vector availability, PostgreSQL or S3 readiness, failed ingestion, high quarantine ratio, storage-metric refresh failures, and Vector event drops. Rules are visible in Prometheus; notification delivery through Alertmanager is deliberately left for a later milestone.
 
 ## Identity, roles, and audit
 
@@ -196,6 +214,8 @@ apps/api/                    FastAPI control plane
 infrastructure/keycloak/     OIDC realm and identity bootstrap
 infrastructure/seaweedfs/    S3 gateway configuration
 infrastructure/vector/       Linux/syslog collector configuration
+infrastructure/prometheus/   scrape configuration and alert rules
+infrastructure/grafana/      provisioned datasource and dashboard
 docs/architecture/           current architecture
 docs/adr/                    architecture decisions
 scripts/                     operator smoke tests
@@ -207,4 +227,4 @@ See [architecture overview](docs/architecture/overview.md), [ADR 0001](docs/adr/
 
 ## Next milestone
 
-The next operational increment should add Prometheus/Grafana metrics, ingestion performance measurements, and platform alerts. Backup/restore and a dedicated detection worker follow immediately after observability.
+The next operational increment should implement and test PostgreSQL, Keycloak, Grafana, and object-storage backup/restore. A dedicated detection worker follows recovery automation.
