@@ -1,8 +1,16 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from sqlalchemy.orm import Session
 
-from .database import check_database, initialize_database
+from .database import check_database, get_db, initialize_database
+from .ingestion import (
+    BatchConflictError,
+    BatchTooLargeError,
+    get_batch_status,
+    ingest_batch,
+)
+from .schemas import BatchStatusResponse, IngestionRequest, IngestionResponse
 from .security import require_api_token
 from .storage import check_storage, ensure_bucket
 
@@ -16,7 +24,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.1.0",
+    version="0.2.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -47,4 +55,37 @@ def ready() -> dict[str, str]:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_api_token)], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "1", "version": "0.1.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "2", "version": "0.2.0"}
+
+
+@app.post(
+    "/api/v1/ingestion/batches",
+    response_model=IngestionResponse,
+    dependencies=[Depends(require_api_token)],
+    tags=["ingestion"],
+)
+def create_ingestion_batch(
+    payload: IngestionRequest, db: Session = Depends(get_db)
+) -> IngestionResponse:
+    try:
+        return ingest_batch(payload, db)
+    except BatchConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except BatchTooLargeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=str(exc),
+        ) from exc
+
+
+@app.get(
+    "/api/v1/ingestion/batches/{batch_id}",
+    response_model=BatchStatusResponse,
+    dependencies=[Depends(require_api_token)],
+    tags=["ingestion"],
+)
+def read_ingestion_batch(batch_id: str, db: Session = Depends(get_db)) -> BatchStatusResponse:
+    batch = get_batch_status(batch_id, db)
+    if batch is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="batch not found")
+    return batch

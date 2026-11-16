@@ -27,3 +27,12 @@ def ensure_bucket() -> None:
 
 def check_storage() -> None:
     get_s3_client().head_bucket(Bucket=get_settings().s3_bucket)
+
+
+def put_object(key: str, body: bytes, content_type: str) -> None:
+    get_s3_client().put_object(
+        Bucket=get_settings().s3_bucket,
+        Key=key,
+        Body=body,
+        ContentType=content_type,
+    )

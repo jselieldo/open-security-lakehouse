@@ -1,6 +1,6 @@
 # Open Security Lakehouse
 
-Milestone 1 is an executable foundation for a security lakehouse on a native Linux host with 16 GB RAM. It provides a FastAPI control plane, PostgreSQL metadata storage, Apache-2.0-licensed SeaweedFS object storage through an S3-compatible API, dependency-aware health checks, bearer-token authentication, and automated validation.
+Milestone 2 is an executable first-data pipeline for a security lakehouse on a native Linux host with 16 GB RAM. It provides a FastAPI control plane, PostgreSQL batch metadata, Apache-2.0-licensed SeaweedFS object storage, raw-event preservation, initial OCSF normalization, Parquet output, quarantine, idempotency, and automated validation.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -45,6 +45,7 @@ set -a; source .env; set +a
 curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
   http://127.0.0.1:8000/api/v1/system/info
 ./scripts/smoke-test.sh
+./scripts/milestone2-smoke-test.sh
 ```
 
 Expected readiness response:
@@ -62,6 +63,24 @@ make test
 ```
 
 The unit suite does not need Docker. The smoke test requires the full Compose stack.
+
+## Ingest the first events
+
+Load the local environment and send a mixed synthetic batch:
+
+```bash
+set -a; source .env; set +a
+./scripts/ingest-synthetic.sh --count 10 --invalid 1
+```
+
+The authenticated `POST /api/v1/ingestion/batches` endpoint stores the original JSON batch under `raw/`, writes valid normalized rows as Zstandard-compressed Parquet under `normalized/`, and writes invalid events with validation errors under `quarantine/invalid-events/`. Reusing the same `batch_id` and source returns the persisted result without writing duplicate objects.
+
+Retrieve batch state with:
+
+```bash
+curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
+  http://127.0.0.1:8000/api/v1/ingestion/batches/<batch-id>
+```
 
 ## Operations
 
@@ -89,4 +108,4 @@ See [architecture overview](docs/architecture/overview.md) and [ADR 0001](docs/a
 
 ## Next milestone
 
-Milestone 2 adds synthetic events, raw ingestion, OCSF adapters, Parquet output, idempotent batches, and quarantine handling while preserving raw source events.
+Milestone 3 adds DuckDB-backed investigation by IP, time range, source, and severity over the normalized Parquet data.

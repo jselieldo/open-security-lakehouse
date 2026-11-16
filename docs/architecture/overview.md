@@ -18,7 +18,7 @@ PostgreSQL  S3 contract
 - `storage` is an internal Compose network. `backend` permits publishing the API on
   loopback, while PostgreSQL remains private because it has no published ports.
 - Liveness verifies the API process. Readiness verifies PostgreSQL and the configured S3 bucket.
-- Milestone 2 can add Vector, raw event ingestion, OCSF normalization, Parquet, and quarantine prefixes.
+- Milestone 2 writes immutable raw JSON, OCSF-normalized Parquet, and validation failures to quarantine. PostgreSQL tracks batch state and idempotency.
 - Milestone 3 can add DuckDB behind a query interface; the interface can later target Trino/Iceberg.
 
 ## Intended object layout

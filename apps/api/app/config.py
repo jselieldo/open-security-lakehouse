@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     s3_access_key: SecretStr
     s3_secret_key: SecretStr
     s3_bucket: str = "osl-security-data"
+    max_batch_events: int = Field(default=1000, ge=1, le=10000)
 
 
 @lru_cache
