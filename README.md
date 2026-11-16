@@ -227,7 +227,7 @@ Test a backup without overwriting production data:
 ./scripts/verify-backup.sh "$HOME/osl-backups/<backup>.tar.enc"
 ```
 
-The drill checks both integrity layers, restores both databases under temporary names, validates Grafana SQLite, restores the lake to a temporary bucket, compares object counts and bytes, then removes all temporary resources. See [the recovery runbook](docs/runbooks/backup-restore.md) for scheduling, off-host copies, and full disaster recovery.
+The drill checks both integrity layers, restores both databases under temporary names, validates Grafana SQLite, restores the lake under an isolated temporary prefix, compares object counts and bytes, then removes all temporary resources. See [the recovery runbook](docs/runbooks/backup-restore.md) for scheduling, off-host copies, and full disaster recovery.
 
 ## Repository map
 

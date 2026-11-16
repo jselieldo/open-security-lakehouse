@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import tarfile
@@ -39,6 +40,7 @@ def import_bucket(input_file=None) -> dict[str, int]:
     input_file = input_file or sys.stdin.buffer
     client = get_s3_client()
     bucket = get_settings().s3_bucket
+    prefix = os.getenv("OSL_OBJECT_PREFIX", "").strip("/")
     existing = {item["Name"] for item in client.list_buckets().get("Buckets", [])}
     if bucket not in existing:
         client.create_bucket(Bucket=bucket)
@@ -51,6 +53,7 @@ def import_bucket(input_file=None) -> dict[str, int]:
             key = member.name.removeprefix("objects/")
             if not key or key.startswith("/") or ".." in key.split("/"):
                 raise ValueError("unsafe object key in backup")
+            target_key = f"{prefix}/{key}" if prefix else key
             body = archive.extractfile(member)
             if body is None:
                 raise ValueError(f"missing object body for {key}")
@@ -60,7 +63,7 @@ def import_bucket(input_file=None) -> dict[str, int]:
                 client.upload_fileobj(
                     upload,
                     bucket,
-                    key,
+                    target_key,
                     ExtraArgs={
                         "ContentType": member.pax_headers.get(
                             "osl-content-type", "application/octet-stream"
@@ -88,14 +91,16 @@ def bucket_stats() -> dict[str, int]:
 def purge_bucket() -> dict[str, int]:
     client = get_s3_client()
     bucket = get_settings().s3_bucket
+    prefix = os.getenv("OSL_OBJECT_PREFIX", "").strip("/")
     deleted = 0
     paginator = client.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=bucket):
+    for page in paginator.paginate(Bucket=bucket, Prefix=f"{prefix}/" if prefix else ""):
         objects = [{"Key": item["Key"]} for item in page.get("Contents", [])]
         if objects:
             client.delete_objects(Bucket=bucket, Delete={"Objects": objects})
             deleted += len(objects)
-    client.delete_bucket(Bucket=bucket)
+    if not prefix:
+        client.delete_bucket(Bucket=bucket)
     return {"deleted": deleted}
 
 

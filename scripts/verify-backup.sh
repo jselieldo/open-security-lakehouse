@@ -7,12 +7,12 @@ work="$(mktemp -d)"
 suffix="$(date +%s)-$$"
 osl_db="osl_restore_test_${suffix//-/_}"
 keycloak_db="keycloak_restore_test_${suffix//-/_}"
-test_bucket="osl-restore-test-$suffix"
+test_prefix="restore-test/$suffix"
 
 cleanup() {
   docker compose exec -T postgres sh -c 'dropdb -U "$POSTGRES_USER" --if-exists "$1"' sh "$osl_db" >/dev/null 2>&1 || true
   docker compose exec -T keycloak-db sh -c 'dropdb -U "$POSTGRES_USER" --if-exists "$1"' sh "$keycloak_db" >/dev/null 2>&1 || true
-  docker compose exec -T -e S3_BUCKET="$test_bucket" api python -m app.backup purge >/dev/null 2>&1 || true
+  docker compose exec -T -e OSL_OBJECT_PREFIX="$test_prefix" api python -m app.backup purge >/dev/null 2>&1 || true
   rm -rf -- "$work"
 }
 trap cleanup EXIT
@@ -43,7 +43,7 @@ connection = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
 assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 PY
 
-actual="$(docker compose exec -T -e S3_BUCKET="$test_bucket" api python -m app.backup import < "$work/objects.tar")"
+actual="$(docker compose exec -T -e OSL_OBJECT_PREFIX="$test_prefix" api python -m app.backup import < "$work/objects.tar")"
 ARCHIVE="$work/objects.tar" ACTUAL="$actual" python3 - <<'PY'
 import json
 import os
