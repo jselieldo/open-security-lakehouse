@@ -26,7 +26,7 @@ services:
     volumes:
       - seaweed-master-data:/data
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9333/cluster/status"]
+      test: ["CMD", "wget", "-q", "--spider", "http://seaweed-master:9333/cluster/status"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -44,7 +44,7 @@ services:
     volumes:
       - seaweed-volume-data:/data
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/status"]
+      test: ["CMD", "wget", "-q", "--spider", "http://seaweed-volume:8080/status"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -64,7 +64,7 @@ services:
     volumes:
       - seaweed-filer-data:/data
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8888/status"]
+      test: ["CMD", "wget", "-q", "--spider", "http://seaweed-filer:8888/status"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -87,7 +87,7 @@ services:
       - ./infrastructure/seaweedfs/entrypoint.sh:/entrypoint.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8333"]
+      test: ["CMD", "wget", "-q", "--spider", "http://seaweed-s3:8333"]
       interval: 5s
       timeout: 5s
       retries: 12
