@@ -22,7 +22,7 @@
         </nav>
         <div class="sidebar-foot">
           <span class="status-dot"></span>
-          <span><strong id="connection-label">Conectando</strong><small>Milestone 5</small></span>
+          <span><strong id="connection-label">Conectando</strong><small>Milestone 6</small></span>
         </div>
       </aside>
 
@@ -35,7 +35,7 @@
           <div class="top-actions">
             <span id="last-refresh" class="muted">Ainda não atualizado</span>
             <button id="refresh-button" class="icon-button" title="Atualizar dados" aria-label="Atualizar dados">↻</button>
-            <button id="token-button" class="button secondary">Token da API</button>
+            <button id="token-button" class="button secondary">Autenticação</button>
           </div>
         </header>
 
@@ -104,7 +104,8 @@
       <form method="dialog" id="token-form">
         <p class="eyebrow">AUTENTICAÇÃO LOCAL</p>
         <h2>Conectar à API</h2>
-        <p>O token fica somente nesta aba e não é gravado no disco.</p>
+        <p>Entre pelo provedor de identidade ou use o token legado durante a migração.</p>
+        <button type="button" class="button primary" id="oidc-login">Entrar com OIDC</button>
         <label>Bearer token<input id="token-input" type="password" autocomplete="off" required /></label>
         <div class="dialog-actions"><button value="cancel" class="button secondary">Cancelar</button><button value="default" class="button primary" id="save-token">Conectar</button></div>
       </form>

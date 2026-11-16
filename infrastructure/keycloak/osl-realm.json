@@ -1,0 +1,42 @@
+{
+  "realm": "osl",
+  "enabled": true,
+  "displayName": "Open Security Lakehouse",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      {"name": "viewer", "description": "Read platform data"},
+      {"name": "ingestor", "description": "Submit security events"},
+      {"name": "analyst", "description": "Investigate events and execute detections"},
+      {"name": "admin", "description": "Manage and audit the platform"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "osl-console",
+      "name": "Open Security Lakehouse Console",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://127.0.0.1:8000/console/*"],
+      "webOrigins": ["http://127.0.0.1:8000"],
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "osl-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "osl-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ]
+}

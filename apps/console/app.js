@@ -1,4 +1,4 @@
-const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [] };
+const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], auth: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -34,6 +34,54 @@ function showNotice(message) {
 function requireToken() {
   if (!state.token) $("#token-dialog").showModal();
   return Boolean(state.token);
+}
+
+function base64Url(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function beginOidcLogin() {
+  state.auth ||= await fetch("/api/v1/auth/config").then((response) => response.json());
+  const verifier = base64Url(crypto.getRandomValues(new Uint8Array(64)));
+  const challenge = base64Url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+  sessionStorage.setItem("osl_pkce_verifier", verifier);
+  const params = new URLSearchParams({
+    client_id: state.auth.client_id,
+    redirect_uri: `${window.location.origin}/console/`,
+    response_type: "code",
+    scope: "openid profile email",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
+  window.location.assign(`${state.auth.issuer_url}/protocol/openid-connect/auth?${params}`);
+}
+
+async function finishOidcLogin() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  if (!code) return;
+  state.auth = await fetch("/api/v1/auth/config").then((response) => response.json());
+  const verifier = sessionStorage.getItem("osl_pkce_verifier");
+  if (!verifier) throw new Error("A sessão de autenticação expirou. Tente entrar novamente.");
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: state.auth.client_id,
+    redirect_uri: `${window.location.origin}/console/`,
+    code_verifier: verifier,
+    code,
+  });
+  const response = await fetch(`${state.auth.issuer_url}/protocol/openid-connect/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!response.ok) throw new Error("O provedor de identidade recusou o login.");
+  const tokens = await response.json();
+  state.token = tokens.access_token;
+  sessionStorage.setItem("osl_token", state.token);
+  sessionStorage.removeItem("osl_pkce_verifier");
+  history.replaceState({}, document.title, "/console/");
 }
 
 async function loadDashboard() {
@@ -141,6 +189,7 @@ $$('[data-go]').forEach((button) => button.addEventListener("click", () => switc
 $("#search-form").addEventListener("submit", runSearch);
 $("#refresh-button").addEventListener("click", () => switchView($(".nav-item.active").dataset.view));
 $("#token-button").addEventListener("click", () => $("#token-dialog").showModal());
+$("#oidc-login").addEventListener("click", () => beginOidcLogin().catch(handleError));
 $("#save-token").addEventListener("click", (event) => {
   event.preventDefault();
   state.token = $("#token-input").value.trim();
@@ -150,4 +199,4 @@ $("#save-token").addEventListener("click", (event) => {
   loadDashboard();
 });
 
-loadDashboard();
+finishOidcLogin().then(loadDashboard).catch(handleError);

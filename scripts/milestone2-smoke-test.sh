@@ -2,20 +2,20 @@
 set -euo pipefail
 
 API_URL="${API_URL:-http://127.0.0.1:${OSL_API_PORT:-8000}}"
-: "${OSL_API_TOKEN:?Export OSL_API_TOKEN or load it from .env}"
+BEARER_TOKEN="$(./scripts/get-access-token.sh)"
 
 batch_id="smoke-$(date -u +%Y%m%d%H%M%S)-$$"
 payload="$(python3 ./scripts/generate-synthetic-events.py \
   --count 5 --invalid 1 --batch-id "${batch_id}")"
 
 first="$(curl --fail --silent --show-error \
-  --header "Authorization: Bearer ${OSL_API_TOKEN}" \
+  --header "Authorization: Bearer ${BEARER_TOKEN}" \
   --header "Content-Type: application/json" \
   --data "${payload}" \
   "${API_URL}/api/v1/ingestion/batches")"
 
 second="$(curl --fail --silent --show-error \
-  --header "Authorization: Bearer ${OSL_API_TOKEN}" \
+  --header "Authorization: Bearer ${BEARER_TOKEN}" \
   --header "Content-Type: application/json" \
   --data "${payload}" \
   "${API_URL}/api/v1/ingestion/batches")"

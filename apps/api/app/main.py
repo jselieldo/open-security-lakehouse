@@ -1,5 +1,7 @@
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import RedirectResponse
@@ -7,13 +9,14 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .config import get_settings
 from .database import (
     Alert,
+    AuditLog,
     DetectionRun,
     IngestionBatch,
     check_database,
     get_db,
-    initialize_database,
 )
 from .detection import (
     execute_rule,
@@ -32,6 +35,8 @@ from .investigation import investigate
 from .scheduler import start_scheduler, stop_scheduler
 from .schemas import (
     AlertResponse,
+    AuditLogResponse,
+    AuthConfigResponse,
     BatchStatusResponse,
     DashboardSummary,
     DetectionRuleResponse,
@@ -40,14 +45,14 @@ from .schemas import (
     IngestionResponse,
     InvestigationRequest,
     InvestigationResponse,
+    UserResponse,
 )
-from .security import require_api_token
+from .security import Principal, get_current_principal, require_roles
 from .storage import check_storage, ensure_bucket
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    initialize_database()
     ensure_bucket()
     start_scheduler()
     yield
@@ -56,7 +61,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.5.0",
+    version="0.6.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -85,15 +90,67 @@ def ready() -> dict[str, str]:
     return {"status": "ready", "database": "ok", "object_storage": "ok"}
 
 
-@app.get("/api/v1/system/info", dependencies=[Depends(require_api_token)], tags=["system"])
+@app.get("/api/v1/auth/config", response_model=AuthConfigResponse, tags=["authentication"])
+def auth_config() -> AuthConfigResponse:
+    settings = get_settings()
+    return AuthConfigResponse(
+        mode=settings.auth_mode,
+        issuer_url=settings.oidc_issuer_url,
+        client_id=settings.oidc_client_id,
+    )
+
+
+@app.get("/api/v1/system/info", dependencies=[Depends(require_roles("viewer"))], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "5", "version": "0.5.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "6", "version": "0.6.0"}
+
+
+@app.get("/api/v1/users/me", response_model=UserResponse, tags=["users"])
+def current_user(
+    principal: Annotated[Principal, Depends(get_current_principal)],
+) -> UserResponse:
+    return UserResponse(
+        subject=principal.subject,
+        username=principal.username,
+        email=principal.email,
+        display_name=principal.display_name,
+        roles=sorted(principal.roles),
+        auth_method=principal.auth_method,
+    )
+
+
+@app.get("/api/v1/audit", response_model=list[AuditLogResponse], tags=["audit"])
+def read_audit_log(
+    _: Annotated[Principal, Depends(require_roles("admin"))],
+    limit: int = 100,
+    db: Session = Depends(get_db),
+) -> list[AuditLogResponse]:
+    if limit < 1 or limit > 1000:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid limit",
+        )
+    entries = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)).all()
+    return [
+        AuditLogResponse(
+            audit_id=entry.audit_id,
+            actor_subject=entry.actor_subject,
+            actor_username=entry.actor_username,
+            action=entry.action,
+            resource=entry.resource,
+            outcome=entry.outcome,
+            details=json.loads(entry.details_json),
+            client_ip=entry.client_ip,
+            created_at=entry.created_at.isoformat(),
+        )
+        for entry in entries
+    ]
 
 
 @app.post(
     "/api/v1/ingestion/batches",
     response_model=IngestionResponse,
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("ingestor"))],
     tags=["ingestion"],
 )
 def create_ingestion_batch(
@@ -113,7 +170,7 @@ def create_ingestion_batch(
 @app.get(
     "/api/v1/ingestion/batches/{batch_id}",
     response_model=BatchStatusResponse,
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("viewer", "ingestor"))],
     tags=["ingestion"],
 )
 def read_ingestion_batch(batch_id: str, db: Session = Depends(get_db)) -> BatchStatusResponse:
@@ -126,7 +183,7 @@ def read_ingestion_batch(batch_id: str, db: Session = Depends(get_db)) -> BatchS
 @app.post(
     "/api/v1/investigations/search",
     response_model=InvestigationResponse,
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("viewer", "analyst"))],
     tags=["investigations"],
 )
 def search_security_events(payload: InvestigationRequest) -> InvestigationResponse:
@@ -136,7 +193,7 @@ def search_security_events(payload: InvestigationRequest) -> InvestigationRespon
 @app.get(
     "/api/v1/detections/rules",
     response_model=list[DetectionRuleResponse],
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("viewer", "analyst"))],
     tags=["detections"],
 )
 def read_detection_rules() -> list[DetectionRuleResponse]:
@@ -146,7 +203,7 @@ def read_detection_rules() -> list[DetectionRuleResponse]:
 @app.post(
     "/api/v1/detections/rules/{rule_id}/run",
     response_model=DetectionRunResponse,
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("analyst"))],
     tags=["detections"],
 )
 def run_detection_rule(rule_id: str, db: Session = Depends(get_db)) -> DetectionRunResponse:
@@ -161,7 +218,7 @@ def run_detection_rule(rule_id: str, db: Session = Depends(get_db)) -> Detection
 @app.get(
     "/api/v1/alerts",
     response_model=list[AlertResponse],
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("viewer", "analyst"))],
     tags=["alerts"],
 )
 def read_alerts(limit: int = 100, db: Session = Depends(get_db)) -> list[AlertResponse]:
@@ -174,7 +231,7 @@ def read_alerts(limit: int = 100, db: Session = Depends(get_db)) -> list[AlertRe
 
 @app.get(
     "/api/v1/alerts/{alert_id}/evidence",
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("viewer", "analyst"))],
     tags=["alerts"],
 )
 def read_alert_evidence(alert_id: str, db: Session = Depends(get_db)) -> dict:
@@ -187,7 +244,7 @@ def read_alert_evidence(alert_id: str, db: Session = Depends(get_db)) -> dict:
 @app.get(
     "/api/v1/dashboard/summary",
     response_model=DashboardSummary,
-    dependencies=[Depends(require_api_token)],
+    dependencies=[Depends(require_roles("viewer"))],
     tags=["dashboard"],
 )
 def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
@@ -199,7 +256,7 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     )
     runs = db.scalar(select(func.count()).select_from(DetectionRun)) or 0
     return DashboardSummary(
-        milestone="5",
+        milestone="6",
         platform_status="operational",
         ingestion_batches=batches,
         accepted_events=accepted,

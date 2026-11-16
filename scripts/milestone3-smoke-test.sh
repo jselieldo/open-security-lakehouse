@@ -2,10 +2,10 @@
 set -euo pipefail
 
 API_URL="${API_URL:-http://127.0.0.1:${OSL_API_PORT:-8000}}"
-: "${OSL_API_TOKEN:?Export OSL_API_TOKEN or load it from .env}"
+BEARER_TOKEN="$(./scripts/get-access-token.sh)"
 
 response="$(curl --fail --silent --show-error \
-  --header "Authorization: Bearer ${OSL_API_TOKEN}" \
+  --header "Authorization: Bearer ${BEARER_TOKEN}" \
   --header "Content-Type: application/json" \
   --data '{"source":"synthetic-linux","min_severity":1,"limit":10}' \
   "${API_URL}/api/v1/investigations/search")"

@@ -1,16 +1,15 @@
 # Architecture overview
 
-Milestone 1 establishes the control plane and durable infrastructure without coupling future data-plane components to a particular storage implementation.
+The architecture keeps identity, control-plane metadata, and security telemetry separated while remaining executable on a 16 GB single-host homelab.
 
 ```text
-Host (127.0.0.1:8000)
-        |
-    FastAPI control plane
-       / \
-PostgreSQL  S3 contract
-(metadata)      |
-            SeaweedFS
-       master/filer/volume
+Browser --OIDC/PKCE--> Keycloak --dedicated DB--> PostgreSQL
+   |                       |
+   +--Bearer token--> FastAPI --metadata/audit--> PostgreSQL
+                         |
+                     S3 contract
+                         |
+                      SeaweedFS
 ```
 
 - PostgreSQL stores operational metadata only; security events will live in object storage.
@@ -22,6 +21,7 @@ PostgreSQL  S3 contract
 - Milestone 3 uses DuckDB behind a structured query interface. S3 objects are loaded as Arrow tables, keeping arbitrary SQL outside the public API. The interface can later target Trino/Iceberg.
 - Milestone 4 keeps versioned YAML rules in Git, schedules them in the control plane, stores alert state in PostgreSQL, and writes immutable evidence to the object lake. Event fingerprints deduplicate repeated matches.
 - Milestone 5 serves a static, responsive console from FastAPI. It calls only structured authenticated APIs and stores its bearer token in browser session memory.
+- Milestone 6 uses Keycloak as the OIDC provider. FastAPI validates RS256 signatures, issuer, audience, and required claims, then enforces realm roles. First-seen user attributes and per-request audit records stay in PostgreSQL. Alembic owns schema evolution and runs before the API process.
 
 ## Intended object layout
 

@@ -1,6 +1,6 @@
 # Open Security Lakehouse
 
-Milestone 5 adds a responsive web console for operational status, investigations, alerts, evidence, and detection rules. It is served by the existing FastAPI container, adding no extra runtime service to the homelab.
+Milestone 6 adds Keycloak OIDC login, persisted users, role-based access control, audit trails, and Alembic database migrations. The legacy bearer token remains available only when `AUTH_MODE=hybrid` or `static`.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -34,7 +34,7 @@ docker compose up --build --wait
 docker compose ps
 ```
 
-Only the API is exposed, at `http://127.0.0.1:8000` by default. PostgreSQL and SeaweedFS are reachable only by containers on private networks.
+The API and Keycloak are exposed on loopback at `http://127.0.0.1:8000` and `http://127.0.0.1:8080`. PostgreSQL and SeaweedFS remain private.
 
 ## Validate the installation
 
@@ -42,14 +42,13 @@ Only the API is exposed, at `http://127.0.0.1:8000` by default. PostgreSQL and S
 curl --fail http://127.0.0.1:8000/health/live
 curl --fail http://127.0.0.1:8000/health/ready
 set -a; source .env; set +a
-curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
-  http://127.0.0.1:8000/api/v1/system/info
 ./scripts/smoke-test.sh
 ./scripts/milestone2-smoke-test.sh
 docker compose exec -T api python - < scripts/verify-milestone2-storage.py
 ./scripts/milestone3-smoke-test.sh
 ./scripts/milestone4-smoke-test.sh
 docker compose exec -T api python - < scripts/verify-milestone4-evidence.py
+./scripts/milestone6-smoke-test.sh
 ```
 
 Expected readiness response:
@@ -66,7 +65,27 @@ make lint
 make test
 ```
 
-The unit suite does not need Docker. The smoke test requires the full Compose stack.
+The unit suite does not need Docker. Smoke tests require the full Compose stack and obtain an OIDC access token from Keycloak.
+
+## Identity, roles, and audit
+
+The installation creates two local test identities from `.env`: an analyst with `viewer`, `ingestor`, and `analyst` roles, and an administrator with `admin`. Change these credentials before first start.
+
+| Role | Access |
+| --- | --- |
+| `viewer` | dashboards, batches, rules, alerts, and investigations |
+| `ingestor` | event ingestion and batch status |
+| `analyst` | investigations and detection execution |
+| `admin` | all operations and audit-log access |
+
+Tokens are verified with the realm's published signing keys plus strict issuer and audience checks. Successful authenticated requests and authorization denials are recorded in PostgreSQL. The `GET /api/v1/users/me` endpoint returns the current identity; `GET /api/v1/audit` is admin-only.
+
+For an existing installation, set `AUTH_MODE=hybrid`, deploy once, confirm OIDC with `milestone6-smoke-test.sh`, then change it to `oidc` and recreate the API. New and upgraded deployments run `alembic upgrade head` before the API starts. To inspect migration state:
+
+```bash
+docker compose exec api alembic current
+docker compose exec api alembic history
+```
 
 ## Ingest the first events
 
@@ -82,7 +101,8 @@ The authenticated `POST /api/v1/ingestion/batches` endpoint stores the original 
 Retrieve batch state with:
 
 ```bash
-curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
+TOKEN="$(./scripts/get-access-token.sh)"
+curl --fail -H "Authorization: Bearer $TOKEN" \
   http://127.0.0.1:8000/api/v1/ingestion/batches/<batch-id>
 ```
 
@@ -91,8 +111,9 @@ curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
 Investigations accept structured filters only; clients cannot submit arbitrary SQL:
 
 ```bash
+TOKEN="$(./scripts/get-access-token.sh)"
 curl --fail \
-  -H "Authorization: Bearer $OSL_API_TOKEN" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   --data '{
     "src_ip": "198.51.100.42",
@@ -111,13 +132,14 @@ The API lists matching Parquet objects through the S3 contract, loads their Arro
 Rules live under `detections/rules/` as reviewed YAML files. List and run them with:
 
 ```bash
-curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
+TOKEN="$(./scripts/get-access-token.sh)"
+curl --fail -H "Authorization: Bearer $TOKEN" \
   http://127.0.0.1:8000/api/v1/detections/rules
 
-curl --fail -X POST -H "Authorization: Bearer $OSL_API_TOKEN" \
+curl --fail -X POST -H "Authorization: Bearer $TOKEN" \
   http://127.0.0.1:8000/api/v1/detections/rules/high-severity-events/run
 
-curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
+curl --fail -H "Authorization: Bearer $TOKEN" \
   http://127.0.0.1:8000/api/v1/alerts
 ```
 
@@ -128,10 +150,10 @@ Enabled rules run on their configured interval inside the single API process. Ma
 The console is available at `http://127.0.0.1:8000/console/`. From another computer, keep the API private and use an SSH tunnel:
 
 ```bash
-ssh -L 8000:127.0.0.1:8000 homelab-lan
+ssh -L 8000:127.0.0.1:8000 -L 8080:127.0.0.1:8080 homelab-lan
 ```
 
-Open `http://127.0.0.1:8000/console/` and enter the bearer token from the homelab `.env`. The token is kept only in browser `sessionStorage` and disappears when the tab session ends.
+Open `http://127.0.0.1:8000/console/`, choose **Entrar com OIDC**, and authenticate through Keycloak. The console uses Authorization Code with PKCE and keeps the access token only in browser `sessionStorage`.
 
 ## Operations
 
@@ -141,12 +163,13 @@ docker compose down                 # preserve named volumes
 docker compose down --volumes       # destructive: delete all local platform data
 ```
 
-Back up the named volumes before upgrades. Do not expose port 8000 publicly without a TLS reverse proxy, token rotation, rate limiting, and an identity-aware authentication layer. The initial static bearer token is deliberately small in scope and should evolve to OIDC plus RBAC.
+Back up the named volumes before upgrades. Do not expose ports 8000 or 8080 publicly without TLS termination, hardened Keycloak production settings, rate limiting, and trusted hostname configuration. `start-dev` is appropriate only for this loopback homelab topology.
 
 ## Repository map
 
 ```text
 apps/api/                    FastAPI control plane
+infrastructure/keycloak/     OIDC realm and identity bootstrap
 infrastructure/seaweedfs/    S3 gateway configuration
 docs/architecture/           current architecture
 docs/adr/                    architecture decisions
@@ -155,8 +178,8 @@ tests/                       automated API tests
 compose.yaml                 executable local topology
 ```
 
-See [architecture overview](docs/architecture/overview.md) and [ADR 0001](docs/adr/0001-object-storage.md).
+See [architecture overview](docs/architecture/overview.md), [ADR 0001](docs/adr/0001-object-storage.md), and [ADR 0002](docs/adr/0002-identity-and-migrations.md).
 
 ## Next milestone
 
-Milestone 6 adds OIDC authentication, users, RBAC, audit trails, and production-oriented schema migrations.
+Milestone 7 can add TLS termination, refresh-token lifecycle, identity federation, and a multi-process scheduler/worker split.

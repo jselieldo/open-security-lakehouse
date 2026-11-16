@@ -122,3 +122,30 @@ class DashboardSummary(BaseModel):
     open_alerts: int
     detection_runs: int
     latest_alerts: list[AlertResponse]
+
+
+class UserResponse(BaseModel):
+    subject: str
+    username: str
+    email: str | None
+    display_name: str | None
+    roles: list[str]
+    auth_method: str
+
+
+class AuditLogResponse(BaseModel):
+    audit_id: str
+    actor_subject: str
+    actor_username: str
+    action: str
+    resource: str
+    outcome: str
+    details: dict[str, Any]
+    client_ip: str | None
+    created_at: str
+
+
+class AuthConfigResponse(BaseModel):
+    mode: str
+    issuer_url: str
+    client_id: str

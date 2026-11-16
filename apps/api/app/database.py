@@ -73,6 +73,38 @@ class Alert(Base):
     )
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    subject: Mapped[str] = mapped_column(String(255), primary_key=True)
+    username: Mapped[str] = mapped_column(String(150), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(320))
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    roles_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    audit_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    actor_subject: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    actor_username: Mapped[str] = mapped_column(String(150), nullable=False)
+    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    resource: Mapped[str] = mapped_column(String(500), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(30), nullable=False)
+    details_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    client_ip: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False, index=True
+    )
+
+
 def build_engine():
     return create_engine(get_settings().database_url, pool_pre_ping=True)
 

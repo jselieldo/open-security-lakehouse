@@ -71,7 +71,8 @@ def _build_query(request: InvestigationRequest) -> tuple[str, list[object]]:
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     parameters.append(request.limit)
-    sql = f"""
+    sql = (  # noqa: S608 -- clauses are selected above; values remain parameters.
+        f"""
         SELECT event_id, source, event_time, ingested_at, schema_name, schema_version,
                class_uid, severity_id, src_ip, product_name, raw_event_json
         FROM security_events
@@ -79,4 +80,5 @@ def _build_query(request: InvestigationRequest) -> tuple[str, list[object]]:
         ORDER BY event_time DESC
         LIMIT ?
     """
+    )
     return sql, parameters

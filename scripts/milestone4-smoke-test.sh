@@ -2,19 +2,19 @@
 set -euo pipefail
 
 API_URL="${API_URL:-http://127.0.0.1:${OSL_API_PORT:-8000}}"
-: "${OSL_API_TOKEN:?Export OSL_API_TOKEN or load it from .env}"
+BEARER_TOKEN="$(./scripts/get-access-token.sh)"
 
 run_rule() {
   curl --fail --silent --show-error \
     --request POST \
-    --header "Authorization: Bearer ${OSL_API_TOKEN}" \
+    --header "Authorization: Bearer ${BEARER_TOKEN}" \
     "${API_URL}/api/v1/detections/rules/high-severity-events/run"
 }
 
 first="$(run_rule)"
 second="$(run_rule)"
 alerts="$(curl --fail --silent --show-error \
-  --header "Authorization: Bearer ${OSL_API_TOKEN}" \
+  --header "Authorization: Bearer ${BEARER_TOKEN}" \
   "${API_URL}/api/v1/alerts?limit=100")"
 
 FIRST="${first}" SECOND="${second}" ALERTS="${alerts}" python3 - <<'PY'

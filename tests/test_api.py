@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 import pytest
-from app.main import live, ready, system_info
+from app.main import auth_config, live, ready, system_info
 from app.security import require_api_token
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -22,7 +22,14 @@ def test_protected_route_accepts_valid_token() -> None:
         scheme="Bearer", credentials="test-token-with-at-least-32-characters"
     )
     assert require_api_token(credentials) is None
-    assert system_info()["milestone"] == "5"
+    assert system_info()["milestone"] == "6"
+
+
+def test_auth_config_is_public_and_contains_no_secret() -> None:
+    config = auth_config()
+    assert config.client_id == "osl-console"
+    assert config.mode == "hybrid"
+    assert "password" not in config.model_dump()
 
 
 def test_readiness_checks_dependencies() -> None:
