@@ -25,3 +25,5 @@ def test_investigation_console_exposes_event_details() -> None:
     assert "raw_event_json" in javascript
     assert "limite atingido" in javascript
     assert "showEventDetails" in javascript
+    assert "app.js?v=" in html
+    assert "styles.css?v=" in html
