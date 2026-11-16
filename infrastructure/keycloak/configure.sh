@@ -16,8 +16,17 @@ ensure_user() {
   local user_id
   user_id=$("$KCADM" get users -r osl -q "username=$username" --fields id --format csv --noquotes | head -n 1)
   if [[ -z "$user_id" ]]; then
-    "$KCADM" create users -r osl -s "username=$username" -s enabled=true >/dev/null
+    "$KCADM" create users -r osl \
+      -s "username=$username" \
+      -s enabled=true >/dev/null
+    user_id=$("$KCADM" get users -r osl -q "username=$username" --fields id --format csv --noquotes | head -n 1)
   fi
+  "$KCADM" update "users/$user_id" -r osl \
+    -s firstName=OSL \
+    -s "lastName=$username" \
+    -s "email=$username@localhost.invalid" \
+    -s emailVerified=true \
+    -s 'requiredActions=[]'
   "$KCADM" set-password -r osl --username "$username" --new-password "$password"
   "$KCADM" add-roles -r osl --uusername "$username" "$@"
 }
