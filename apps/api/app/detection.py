@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 from time import perf_counter
@@ -27,6 +27,7 @@ class DetectionRule(BaseModel):
     enabled: bool = True
     schedule_minutes: int = Field(default=15, ge=1, le=1440)
     threshold: int = Field(default=1, ge=1, le=1000)
+    lookback_minutes: int = Field(default=20, ge=1, le=10080)
     query: InvestigationRequest
 
 
@@ -56,7 +57,12 @@ def execute_rule(rule: DetectionRule, db: Session) -> DetectionRunResponse:
     started = perf_counter()
 
     try:
-        result = investigate(rule.query)
+        query = rule.query
+        if query.start_time is None:
+            query = query.model_copy(
+                update={"start_time": datetime.now(UTC) - timedelta(minutes=rule.lookback_minutes)}
+            )
+        result = investigate(query)
         run.matched_count = result.returned_count
         if result.returned_count >= rule.threshold:
             run.alert_created = _create_alert(rule, run_id, result.events, db)

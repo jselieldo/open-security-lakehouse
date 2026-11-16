@@ -18,7 +18,11 @@ type = "internal_metrics"
 type = "remap"
 inputs = ["linux_syslog"]
 source = '''
-.osl_source = "linux-syslog"
+if .appname == "osl-smoke" {
+  .osl_source = "test-syslog"
+} else {
+  .osl_source = "linux-syslog"
+}
 '''
 
 [sinks.osl_api]
@@ -41,7 +45,7 @@ codec = "json"
 method = "newline_delimited"
 
 [sinks.osl_api.batch]
-max_events = 100
+max_events = 1
 timeout_secs = 2
 
 [sinks.osl_api.buffer]

@@ -5,6 +5,10 @@ severity: high
 enabled: true
 schedule_minutes: 15
 threshold: 1
+lookback_minutes: 20
 query:
   min_severity: 4
+  exclude_sources:
+    - synthetic-linux
+    - test-syslog
   limit: 1000

@@ -126,6 +126,24 @@ def test_detection_below_threshold_does_not_alert(monkeypatch) -> None:
     assert alerts == []
 
 
+def test_detection_applies_relative_lookback(monkeypatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    captured = {}
+    monkeypatch.setattr(
+        "app.detection.investigate",
+        lambda query: captured.update({"query": query}) or investigation_result(),
+    )
+    monkeypatch.setattr("app.detection.put_object", lambda *_args: None)
+    before = datetime.now(UTC)
+    with Session(engine) as db:
+        execute_rule(rule(), db)
+    query = captured["query"]
+    assert query.start_time is not None
+    assert query.start_time <= before
+    assert query.start_time > before.replace(year=before.year - 1)
+
+
 def test_alert_evidence_is_loaded_from_storage(monkeypatch) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)

@@ -167,3 +167,18 @@ def test_vector_payload_rejects_empty_or_non_object_content() -> None:
         vector_events_to_request(b"")
     with pytest.raises(ValueError):
         vector_events_to_request(b"[1, 2]")
+
+
+def test_vector_test_events_use_isolated_source() -> None:
+    request = vector_events_to_request(
+        b'{"message":"smoke","appname":"osl-smoke","osl_source":"test-syslog"}'
+    )
+    assert request.source == "test-syslog"
+
+
+def test_vector_rejects_mixed_source_batch() -> None:
+    with pytest.raises(ValueError, match="single OSL source"):
+        vector_events_to_request(
+            b'{"message":"live","osl_source":"linux-syslog"}\n'
+            b'{"message":"test","osl_source":"test-syslog"}\n'
+        )

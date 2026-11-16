@@ -25,13 +25,13 @@ for _ in $(seq 1 20); do
   response="$(curl --fail --silent --show-error \
     --header "Authorization: Bearer $token" \
     --header "Content-Type: application/json" \
-    --data '{"source":"linux-syslog","limit":1000}' \
+    --data '{"source":"test-syslog","limit":1000}' \
     "$API_URL/api/v1/investigations/search")"
   if RESPONSE="$response" MARKER="$marker" python3 -c \
     'import json,os,sys; data=json.loads(os.environ["RESPONSE"]); sys.exit(0 if any(os.environ["MARKER"] in e["raw_event_json"] for e in data["events"]) else 1)'
   then
     RESPONSE="$response" python3 -c \
-      'import json,os; d=json.loads(os.environ["RESPONSE"]); print("Milestone 7 smoke test passed: {} Linux/syslog event(s) queryable.".format(d["returned_count"]))'
+      'import json,os; d=json.loads(os.environ["RESPONSE"]); print("Milestone 7 smoke test passed: {} isolated test event(s) queryable.".format(d["returned_count"]))'
     exit 0
   fi
   sleep 1

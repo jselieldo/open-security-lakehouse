@@ -161,12 +161,16 @@ class BatchTooLargeError(Exception):
 
 def vector_events_to_request(body: bytes) -> IngestionRequest:
     events = _parse_vector_body(body)
+    sources = {str(event.get("osl_source", "linux-syslog")) for event in events}
+    if len(sources) != 1:
+        raise ValueError("Vector batch must contain a single OSL source")
+    source = sources.pop()
     canonical = json.dumps(events, separators=(",", ":"), sort_keys=True, default=str)
     batch_id = f"vector-{sha256(canonical.encode()).hexdigest()[:32]}"
     normalized_events = [_vector_event(event, index) for index, event in enumerate(events)]
     return IngestionRequest(
         batch_id=batch_id,
-        source="linux-syslog",
+        source=source,
         events=normalized_events,
     )
 

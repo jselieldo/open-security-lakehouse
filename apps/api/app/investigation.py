@@ -71,6 +71,11 @@ def _build_query(request: InvestigationRequest) -> tuple[str, list[object]]:
             clauses.append(expression)
             parameters.append(value)
 
+    if request.exclude_sources:
+        placeholders = ", ".join("?" for _ in request.exclude_sources)
+        clauses.append(f"source NOT IN ({placeholders})")
+        parameters.extend(request.exclude_sources)
+
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     parameters.append(request.limit)
     sql = (  # noqa: S608 -- clauses are selected above; values remain parameters.

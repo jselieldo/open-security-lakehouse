@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from ipaddress import ip_address
 from typing import Any
@@ -39,11 +40,19 @@ class BatchStatusResponse(IngestionResponse):
 class InvestigationRequest(BaseModel):
     src_ip: str | None = None
     source: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    exclude_sources: list[str] = Field(default_factory=list, max_length=20)
     start_time: datetime | None = None
     end_time: datetime | None = None
     min_severity: int | None = Field(default=None, ge=0, le=6)
     max_severity: int | None = Field(default=None, ge=0, le=6)
     limit: int = Field(default=100, ge=1, le=1000)
+
+    @field_validator("exclude_sources")
+    @classmethod
+    def validate_exclude_sources(cls, values: list[str]) -> list[str]:
+        if any(not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", value) for value in values):
+            raise ValueError("excluded sources must use lowercase source identifiers")
+        return list(dict.fromkeys(values))
 
     @field_validator("src_ip")
     @classmethod
@@ -88,6 +97,7 @@ class DetectionRuleResponse(BaseModel):
     enabled: bool
     schedule_minutes: int
     threshold: int
+    lookback_minutes: int
     query: InvestigationRequest
 
 
