@@ -52,15 +52,14 @@ def import_bucket(input_file=None) -> dict[str, int]:
             body = archive.extractfile(member)
             if body is None:
                 raise ValueError(f"missing object body for {key}")
-            client.upload_fileobj(
-                body,
-                bucket,
-                key,
-                ExtraArgs={
-                    "ContentType": member.pax_headers.get(
-                        "osl-content-type", "application/octet-stream"
-                    )
-                },
+            client.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=body,
+                ContentLength=member.size,
+                ContentType=member.pax_headers.get(
+                    "osl-content-type", "application/octet-stream"
+                ),
             )
             count += 1
             total += member.size
