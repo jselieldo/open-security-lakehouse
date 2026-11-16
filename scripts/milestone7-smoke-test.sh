@@ -2,7 +2,7 @@
 set -euo pipefail
 
 API_URL="${API_URL:-http://127.0.0.1:${OSL_API_PORT:-8000}}"
-SYSLOG_HOST="${SYSLOG_HOST:-127.0.0.1}"
+SYSLOG_HOST="${SYSLOG_HOST:-$(hostname -I | awk '{print $1}')}"
 SYSLOG_PORT="${SYSLOG_PORT:-5514}"
 marker="osl-m7-$RANDOM-$(date +%s)"
 timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
