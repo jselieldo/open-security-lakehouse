@@ -46,6 +46,7 @@ curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
   http://127.0.0.1:8000/api/v1/system/info
 ./scripts/smoke-test.sh
 ./scripts/milestone2-smoke-test.sh
+docker compose exec -T api python - < scripts/verify-milestone2-storage.py
 ```
 
 Expected readiness response:
