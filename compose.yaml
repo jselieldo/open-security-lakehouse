@@ -32,7 +32,7 @@ services:
     mem_limit: 768m
 
   grafana:
-    image: grafana/grafana-oss:13.2.1
+    image: grafana/grafana:13.2.1
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
