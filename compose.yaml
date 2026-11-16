@@ -64,7 +64,7 @@ services:
     volumes:
       - seaweed-filer-data:/data
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://seaweed-filer:8888/status"]
+      test: ["CMD", "wget", "-q", "--spider", "http://seaweed-filer:8888/"]
       interval: 5s
       timeout: 5s
       retries: 12
