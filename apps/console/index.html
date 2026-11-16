@@ -74,7 +74,7 @@
             <form id="search-form" class="filter-grid">
               <label>Endereço IP<input name="src_ip" placeholder="198.51.100.42" /></label>
               <label>Fonte<input name="source" placeholder="synthetic-linux" /></label>
-              <label>Severidade mínima<select name="min_severity"><option value="">Todas</option><option value="1">1 · Informativa</option><option value="2">2 · Baixa</option><option value="3">3 · Média</option><option value="4">4 · Alta</option><option value="5">5 · Crítica</option></select></label>
+              <label>Severidade mínima<select name="min_severity"><option value="">Todas</option><option value="1">1 · Informativa</option><option value="2">2 · Notice</option><option value="3">3 · Warning</option><option value="4">4 · Erro</option><option value="5">5 · Crítica</option><option value="6">6 · Emergência</option></select></label>
               <label>Limite<input name="limit" type="number" min="1" max="1000" value="100" /></label>
               <label>Início<input name="start_time" type="datetime-local" /></label>
               <label>Fim<input name="end_time" type="datetime-local" /></label>
@@ -83,7 +83,24 @@
           </article>
           <article class="panel results-panel">
             <div class="panel-head"><div><p class="eyebrow">RESULTADOS</p><h3 id="result-title">Aguardando consulta</h3></div><span id="query-meta" class="chip">DuckDB</span></div>
-            <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Evento</th><th>Fonte</th><th>IP de origem</th><th>Severidade</th></tr></thead><tbody id="events-body"><tr><td colspan="5" class="empty-state">Use os filtros acima para pesquisar o lake.</td></tr></tbody></table></div>
+            <p id="result-hint" class="result-hint hidden"></p>
+            <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Evento</th><th>Fonte</th><th>IP de origem</th><th>Severidade</th><th><span class="sr-only">Abrir detalhes</span></th></tr></thead><tbody id="events-body"><tr><td colspan="6" class="empty-state">Use os filtros acima para pesquisar o lake.</td></tr></tbody></table></div>
+          </article>
+          <article id="event-details" class="panel event-details hidden" aria-live="polite">
+            <div class="panel-head">
+              <div><p class="eyebrow">DETALHES DO EVENTO</p><h3 id="event-detail-title">Evento</h3></div>
+              <button id="close-event-details" class="icon-button" type="button" aria-label="Fechar detalhes">×</button>
+            </div>
+            <div class="event-summary">
+              <div class="event-message"><small>MENSAGEM ORIGINAL</small><p id="event-message">—</p></div>
+              <dl id="event-metadata"></dl>
+            </div>
+            <div class="detail-actions">
+              <button id="investigate-event-ip" class="button primary" type="button">Investigar este IP</button>
+              <button id="similar-events" class="button secondary" type="button">Ver eventos semelhantes</button>
+              <button id="copy-event-json" class="button secondary" type="button">Copiar JSON</button>
+            </div>
+            <details class="raw-details"><summary>JSON completo do evento</summary><pre id="event-json"></pre></details>
           </article>
         </section>
 
