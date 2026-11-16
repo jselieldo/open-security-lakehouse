@@ -2,8 +2,10 @@
 
 import argparse
 import json
+import shutil
 import sys
 import tarfile
+import tempfile
 
 from .config import get_settings
 from .storage import get_s3_client
@@ -52,15 +54,19 @@ def import_bucket(input_file=None) -> dict[str, int]:
             body = archive.extractfile(member)
             if body is None:
                 raise ValueError(f"missing object body for {key}")
-            client.put_object(
-                Bucket=bucket,
-                Key=key,
-                Body=body,
-                ContentLength=member.size,
-                ContentType=member.pax_headers.get(
-                    "osl-content-type", "application/octet-stream"
-                ),
-            )
+            with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as upload:
+                shutil.copyfileobj(body, upload)
+                upload.seek(0)
+                client.upload_fileobj(
+                    upload,
+                    bucket,
+                    key,
+                    ExtraArgs={
+                        "ContentType": member.pax_headers.get(
+                            "osl-content-type", "application/octet-stream"
+                        )
+                    },
+                )
             count += 1
             total += member.size
     return {"objects": count, "bytes": total}

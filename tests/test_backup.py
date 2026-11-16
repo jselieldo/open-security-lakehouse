@@ -37,10 +37,9 @@ class FakeClient:
     def create_bucket(self, **_kwargs):
         return None
 
-    def put_object(self, *, Bucket, Key, Body, ContentLength, ContentType):
-        assert Bucket == "test-bucket"
-        assert ContentLength == 7
-        self.uploaded[Key] = (Body.read(), ContentType)
+    def upload_fileobj(self, body, bucket, key, ExtraArgs):
+        assert bucket == "test-bucket"
+        self.uploaded[key] = (body.read(), ExtraArgs["ContentType"])
 
 
 def test_object_backup_round_trip(monkeypatch) -> None:
