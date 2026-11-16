@@ -49,6 +49,7 @@ curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
 docker compose exec -T api python - < scripts/verify-milestone2-storage.py
 ./scripts/milestone3-smoke-test.sh
 ./scripts/milestone4-smoke-test.sh
+docker compose exec -T api python - < scripts/verify-milestone4-evidence.py
 ```
 
 Expected readiness response:
