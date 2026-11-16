@@ -13,10 +13,14 @@ def main() -> None:
         raise SystemExit("No alerts found")
 
     evidence = json.loads(get_object_bytes(alert.evidence_object_key))
-    assert evidence["alert_id"] == alert.alert_id
-    assert evidence["rule"]["id"] == alert.rule_id
-    assert evidence["event_count"] == alert.event_count
-    assert len(evidence["events"]) == alert.event_count
+    checks = (
+        evidence["alert_id"] == alert.alert_id,
+        evidence["rule"]["id"] == alert.rule_id,
+        evidence["event_count"] == alert.event_count,
+        len(evidence["events"]) == alert.event_count,
+    )
+    if not all(checks):
+        raise SystemExit("Evidence does not match persisted alert metadata")
     print(f"ALERT_ID={alert.alert_id}")
     print(f"RULE_ID={alert.rule_id}")
     print(f"EVENT_COUNT={alert.event_count}")
