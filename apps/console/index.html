@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <title>OSL Console</title>
-    <link rel="stylesheet" href="./styles.css?v=20261116-2" />
+    <link rel="stylesheet" href="./styles.css?v=20261116-3" />
   </head>
   <body>
     <div class="shell">
@@ -75,7 +75,7 @@
               <label>Endereço IP<input name="src_ip" placeholder="198.51.100.42" /></label>
               <label>Fonte<input name="source" placeholder="synthetic-linux" /></label>
               <label>Severidade mínima<select name="min_severity"><option value="">Todas</option><option value="1">1 · Informativa</option><option value="2">2 · Notice</option><option value="3">3 · Warning</option><option value="4">4 · Erro</option><option value="5">5 · Crítica</option><option value="6">6 · Emergência</option></select></label>
-              <label>Limite<input name="limit" type="number" min="1" max="1000" value="100" /></label>
+              <label>Eventos por página<select name="limit"><option value="25">25</option><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option><option value="500">500</option></select></label>
               <label>Início<input name="start_time" type="datetime-local" /></label>
               <label>Fim<input name="end_time" type="datetime-local" /></label>
               <button class="button primary" type="submit">Executar investigação</button>
@@ -85,6 +85,16 @@
             <div class="panel-head"><div><p class="eyebrow">RESULTADOS</p><h3 id="result-title">Aguardando consulta</h3></div><span id="query-meta" class="chip">DuckDB</span></div>
             <p id="result-hint" class="result-hint hidden"></p>
             <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Evento</th><th>Fonte</th><th>IP de origem</th><th>Severidade</th><th><span class="sr-only">Abrir detalhes</span></th></tr></thead><tbody id="events-body"><tr><td colspan="6" class="empty-state">Use os filtros acima para pesquisar o lake.</td></tr></tbody></table></div>
+            <nav id="pagination" class="pagination hidden" aria-label="Paginação dos resultados">
+              <span id="page-range">—</span>
+              <div>
+                <button id="first-page" class="icon-button" type="button" aria-label="Primeira página">«</button>
+                <button id="previous-page" class="icon-button" type="button" aria-label="Página anterior">‹</button>
+                <span id="page-label" class="page-label">Página 1 de 1</span>
+                <button id="next-page" class="icon-button" type="button" aria-label="Próxima página">›</button>
+                <button id="last-page" class="icon-button" type="button" aria-label="Última página">»</button>
+              </div>
+            </nav>
           </article>
           <article id="event-details" class="panel event-details hidden" aria-live="polite">
             <div class="panel-head">
@@ -127,6 +137,6 @@
         <div class="dialog-actions"><button value="cancel" class="button secondary">Cancelar</button><button value="default" class="button primary" id="save-token">Conectar</button></div>
       </form>
     </dialog>
-    <script src="./app.js?v=20261116-2" defer></script>
+    <script src="./app.js?v=20261116-3" defer></script>
   </body>
 </html>

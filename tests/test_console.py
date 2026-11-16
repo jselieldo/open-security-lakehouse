@@ -23,7 +23,10 @@ def test_investigation_console_exposes_event_details() -> None:
     ):
         assert element_id in html
     assert "raw_event_json" in javascript
-    assert "limite atingido" in javascript
+    assert "eventos encontrados" in javascript
     assert "showEventDetails" in javascript
     assert "app.js?v=" in html
     assert "styles.css?v=" in html
+    assert 'id="pagination"' in html
+    assert "total_count" in javascript
+    assert "goToPage" in javascript

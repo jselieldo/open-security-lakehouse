@@ -86,4 +86,15 @@ def test_result_limit_is_enforced(monkeypatch) -> None:
     monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
     result = investigate(InvestigationRequest(limit=1))
     assert result.returned_count == 1
+    assert result.total_count == 2
     assert result.events[0]["event_id"] == "evt-high"
+
+
+def test_result_offset_pages_through_matches(monkeypatch) -> None:
+    body = parquet_bytes(rows())
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: ["one.parquet"])
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
+    result = investigate(InvestigationRequest(limit=1, offset=1))
+    assert result.total_count == 2
+    assert result.offset == 1
+    assert result.events[0]["event_id"] == "evt-low"

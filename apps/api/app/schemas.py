@@ -46,6 +46,7 @@ class InvestigationRequest(BaseModel):
     min_severity: int | None = Field(default=None, ge=0, le=6)
     max_severity: int | None = Field(default=None, ge=0, le=6)
     limit: int = Field(default=100, ge=1, le=1000)
+    offset: int = Field(default=0, ge=0, le=10_000_000)
 
     @field_validator("exclude_sources")
     @classmethod
@@ -85,6 +86,9 @@ class InvestigationResponse(BaseModel):
     query_engine: str
     scanned_objects: int
     returned_count: int
+    total_count: int = 0
+    limit: int = 100
+    offset: int = 0
     duration_ms: float
     events: list[dict[str, Any]]
 

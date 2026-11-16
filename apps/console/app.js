@@ -1,4 +1,4 @@
-const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], events: [], selectedEvent: null, auth: null };
+const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], events: [], selectedEvent: null, searchPayload: null, currentPage: 1, totalPages: 1, auth: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -126,23 +126,50 @@ async function runSearch(event) {
     else if (["start_time", "end_time"].includes(key)) payload[key] = new Date(value).toISOString();
     else payload[key] = value;
   }
+  state.searchPayload = payload;
+  await executeSearch(1);
+}
+
+async function executeSearch(page) {
+  if (!state.searchPayload) return;
+  const payload = { ...state.searchPayload };
+  payload.offset = (page - 1) * payload.limit;
   $("#result-title").textContent = "Consultando o lake…";
   try {
     const result = await api("/api/v1/investigations/search", { method: "POST", body: JSON.stringify(payload) });
     state.events = result.events;
     state.selectedEvent = null;
     $("#event-details").classList.add("hidden");
-    const limitReached = result.returned_count >= (payload.limit || 100);
-    $("#result-title").textContent = `${result.returned_count} eventos retornados${limitReached ? " (limite atingido)" : ""}`;
+    state.currentPage = Math.floor(result.offset / result.limit) + 1;
+    state.totalPages = Math.max(1, Math.ceil(result.total_count / result.limit));
+    $("#result-title").textContent = `${result.total_count} eventos encontrados`;
     $("#query-meta").textContent = `${result.scanned_objects} objetos examinados · ${result.duration_ms} ms`;
-    $("#result-hint").textContent = limitReached ? "Há possivelmente mais eventos. Refine os filtros ou aumente o limite para ampliar a consulta." : "Todos os eventos correspondentes encontrados nos objetos examinados foram retornados.";
+    $("#result-hint").textContent = result.total_count > result.returned_count ? `Exibindo ${result.returned_count} eventos nesta página.` : "Todos os eventos correspondentes cabem nesta página.";
     $("#result-hint").classList.toggle("hidden", !result.events.length);
     $("#events-body").innerHTML = result.events.length ? result.events.map((item, index) => `<tr class="event-row" tabindex="0" data-event-index="${index}" aria-label="Abrir detalhes do evento ${escapeHtml(item.event_id)}"><td>${formatDate(item.event_time)}</td><td><span class="event-id">${escapeHtml(item.event_id)}</span></td><td>${escapeHtml(item.source)}</td><td>${escapeHtml(item.src_ip || "—")}</td><td><span class="severity severity-${item.severity_id}">${item.severity_id} · ${escapeHtml(severityLabels[item.severity_id] || "Desconhecida")}</span></td><td class="row-arrow">›</td></tr>`).join("") : '<tr><td colspan="6" class="empty-state">Nenhum evento corresponde aos filtros.</td></tr>';
     $$("[data-event-index]").forEach((row) => {
       row.addEventListener("click", () => showEventDetails(Number(row.dataset.eventIndex)));
       row.addEventListener("keydown", (keyEvent) => { if (["Enter", " "].includes(keyEvent.key)) { keyEvent.preventDefault(); showEventDetails(Number(row.dataset.eventIndex)); } });
     });
+    renderPagination(result);
   } catch (error) { handleError(error); }
+}
+
+function renderPagination(result) {
+  const first = result.total_count ? result.offset + 1 : 0;
+  const last = result.offset + result.returned_count;
+  $("#page-range").textContent = `${first}–${last} de ${result.total_count}`;
+  $("#page-label").textContent = `Página ${state.currentPage} de ${state.totalPages}`;
+  $("#first-page").disabled = state.currentPage <= 1;
+  $("#previous-page").disabled = state.currentPage <= 1;
+  $("#next-page").disabled = state.currentPage >= state.totalPages;
+  $("#last-page").disabled = state.currentPage >= state.totalPages;
+  $("#pagination").classList.toggle("hidden", result.total_count === 0);
+}
+
+function goToPage(page) {
+  if (page < 1 || page > state.totalPages || page === state.currentPage) return;
+  executeSearch(page).then(() => $("#result-title").scrollIntoView({ behavior: "smooth", block: "start" })).catch(handleError);
 }
 
 function showEventDetails(index) {
@@ -260,6 +287,10 @@ $("#close-event-details").addEventListener("click", () => $("#event-details").cl
 $("#investigate-event-ip").addEventListener("click", () => searchFromSelected("ip"));
 $("#similar-events").addEventListener("click", () => searchFromSelected("similar"));
 $("#copy-event-json").addEventListener("click", () => copySelectedJson().catch(handleError));
+$("#first-page").addEventListener("click", () => goToPage(1));
+$("#previous-page").addEventListener("click", () => goToPage(state.currentPage - 1));
+$("#next-page").addEventListener("click", () => goToPage(state.currentPage + 1));
+$("#last-page").addEventListener("click", () => goToPage(state.totalPages));
 $("#refresh-button").addEventListener("click", () => switchView($(".nav-item.active").dataset.view));
 $("#token-button").addEventListener("click", () => $("#token-dialog").showModal());
 $("#oidc-login").addEventListener("click", () => beginOidcLogin().catch(handleError));

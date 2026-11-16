@@ -30,9 +30,11 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
     keys = [key for key in list_object_keys(prefix) if key.endswith(".parquet")]
     table = _load_tables(keys)
     sql, parameters = _build_query(request)
+    count_sql, count_parameters = _build_count_query(request)
 
     with duckdb.connect(":memory:") as connection:
         connection.register("security_events", table)
+        total_count = connection.execute(count_sql, count_parameters).fetchone()[0]
         result = connection.execute(sql, parameters).fetch_arrow_table()
 
     events = result.to_pylist()
@@ -42,6 +44,9 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
         query_engine="duckdb",
         scanned_objects=len(keys),
         returned_count=len(events),
+        total_count=total_count,
+        limit=request.limit,
+        offset=request.offset,
         duration_ms=duration_ms,
         events=events,
     )
@@ -57,6 +62,27 @@ def _load_tables(keys: list[str]) -> pa.Table:
 
 
 def _build_query(request: InvestigationRequest) -> tuple[str, list[object]]:
+    where, parameters = _build_filters(request)
+    parameters.extend((request.limit, request.offset))
+    sql = (  # noqa: S608 -- clauses are selected below; values remain parameters.
+        f"""
+        SELECT event_id, source, event_time, ingested_at, schema_name, schema_version,
+               class_uid, severity_id, src_ip, product_name, raw_event_json
+        FROM security_events
+        {where}
+        ORDER BY event_time DESC
+        LIMIT ? OFFSET ?
+    """
+    )
+    return sql, parameters
+
+
+def _build_count_query(request: InvestigationRequest) -> tuple[str, list[object]]:
+    where, parameters = _build_filters(request)
+    return f"SELECT count(*) FROM security_events {where}", parameters  # noqa: S608
+
+
+def _build_filters(request: InvestigationRequest) -> tuple[str, list[object]]:
     clauses: list[str] = []
     parameters: list[object] = []
     for expression, value in (
@@ -77,15 +103,4 @@ def _build_query(request: InvestigationRequest) -> tuple[str, list[object]]:
         parameters.extend(request.exclude_sources)
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    parameters.append(request.limit)
-    sql = (  # noqa: S608 -- clauses are selected above; values remain parameters.
-        f"""
-        SELECT event_id, source, event_time, ingested_at, schema_name, schema_version,
-               class_uid, severity_id, src_ip, product_name, raw_event_json
-        FROM security_events
-        {where}
-        ORDER BY event_time DESC
-        LIMIT ?
-    """
-    )
-    return sql, parameters
+    return where, parameters
