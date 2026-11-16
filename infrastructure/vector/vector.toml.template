@@ -29,7 +29,7 @@ acknowledgements.enabled = true
 
 [sinks.osl_api.auth]
 strategy = "bearer"
-token = "${COLLECTOR_API_TOKEN}"
+token = "__COLLECTOR_API_TOKEN__"
 
 [sinks.osl_api.encoding]
 codec = "json"
