@@ -2,7 +2,13 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from app.database import Alert, Base
-from app.detection import DetectionRule, execute_rule, list_alerts, load_rules
+from app.detection import (
+    DetectionRule,
+    execute_rule,
+    get_alert_evidence,
+    list_alerts,
+    load_rules,
+)
 from app.schemas import InvestigationRequest, InvestigationResponse
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -118,3 +124,24 @@ def test_detection_below_threshold_does_not_alert(monkeypatch) -> None:
 
     assert result.alert_created is False
     assert alerts == []
+
+
+def test_alert_evidence_is_loaded_from_storage(monkeypatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr("app.detection.investigate", lambda _query: investigation_result())
+    stored = {}
+
+    def fake_put(key, body, _content_type) -> None:
+        stored[key] = body
+
+    monkeypatch.setattr("app.detection.put_object", fake_put)
+    monkeypatch.setattr("app.detection.get_object_bytes", lambda key: stored[key])
+    with Session(engine, expire_on_commit=False) as db:
+        execute_rule(rule(), db)
+        alert = db.scalar(select(Alert))
+        evidence = get_alert_evidence(alert.alert_id, db)
+
+    assert evidence is not None
+    assert evidence["alert_id"] == alert.alert_id
+    assert evidence["events"][0]["event_id"] == "evt-high"

@@ -1,10 +1,27 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .database import check_database, get_db, initialize_database
-from .detection import execute_rule, get_rule, list_alerts, load_rules
+from .database import (
+    Alert,
+    DetectionRun,
+    IngestionBatch,
+    check_database,
+    get_db,
+    initialize_database,
+)
+from .detection import (
+    execute_rule,
+    get_alert_evidence,
+    get_rule,
+    list_alerts,
+    load_rules,
+)
 from .ingestion import (
     BatchConflictError,
     BatchTooLargeError,
@@ -16,6 +33,7 @@ from .scheduler import start_scheduler, stop_scheduler
 from .schemas import (
     AlertResponse,
     BatchStatusResponse,
+    DashboardSummary,
     DetectionRuleResponse,
     DetectionRunResponse,
     IngestionRequest,
@@ -38,7 +56,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.4.0",
+    version="0.5.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -69,7 +87,7 @@ def ready() -> dict[str, str]:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_api_token)], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "4", "version": "0.4.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "5", "version": "0.5.0"}
 
 
 @app.post(
@@ -152,3 +170,53 @@ def read_alerts(limit: int = 100, db: Session = Depends(get_db)) -> list[AlertRe
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid limit"
         )
     return list_alerts(db, limit)
+
+
+@app.get(
+    "/api/v1/alerts/{alert_id}/evidence",
+    dependencies=[Depends(require_api_token)],
+    tags=["alerts"],
+)
+def read_alert_evidence(alert_id: str, db: Session = Depends(get_db)) -> dict:
+    evidence = get_alert_evidence(alert_id, db)
+    if evidence is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="alert not found")
+    return evidence
+
+
+@app.get(
+    "/api/v1/dashboard/summary",
+    response_model=DashboardSummary,
+    dependencies=[Depends(require_api_token)],
+    tags=["dashboard"],
+)
+def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
+    batches = db.scalar(select(func.count()).select_from(IngestionBatch)) or 0
+    accepted = db.scalar(select(func.coalesce(func.sum(IngestionBatch.accepted_count), 0))) or 0
+    quarantined = db.scalar(select(func.coalesce(func.sum(IngestionBatch.rejected_count), 0))) or 0
+    open_alerts = (
+        db.scalar(select(func.count()).select_from(Alert).where(Alert.status == "open")) or 0
+    )
+    runs = db.scalar(select(func.count()).select_from(DetectionRun)) or 0
+    return DashboardSummary(
+        milestone="5",
+        platform_status="operational",
+        ingestion_batches=batches,
+        accepted_events=accepted,
+        quarantined_events=quarantined,
+        detection_rules=len(load_rules()),
+        open_alerts=open_alerts,
+        detection_runs=runs,
+        latest_alerts=list_alerts(db, 5),
+    )
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/console/")
+
+
+console_dir = Path("/app/console")
+if not console_dir.exists():
+    console_dir = Path(__file__).resolve().parents[2] / "console"
+app.mount("/console", StaticFiles(directory=console_dir, html=True), name="console")

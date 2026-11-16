@@ -21,6 +21,7 @@ PostgreSQL  S3 contract
 - Milestone 2 writes immutable raw JSON, OCSF-normalized Parquet, and validation failures to quarantine. PostgreSQL tracks batch state and idempotency.
 - Milestone 3 uses DuckDB behind a structured query interface. S3 objects are loaded as Arrow tables, keeping arbitrary SQL outside the public API. The interface can later target Trino/Iceberg.
 - Milestone 4 keeps versioned YAML rules in Git, schedules them in the control plane, stores alert state in PostgreSQL, and writes immutable evidence to the object lake. Event fingerprints deduplicate repeated matches.
+- Milestone 5 serves a static, responsive console from FastAPI. It calls only structured authenticated APIs and stores its bearer token in browser session memory.
 
 ## Intended object layout
 

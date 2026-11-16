@@ -15,7 +15,7 @@ from .config import get_settings
 from .database import Alert, DetectionRun
 from .investigation import investigate
 from .schemas import AlertResponse, DetectionRunResponse, InvestigationRequest
-from .storage import put_object
+from .storage import get_object_bytes, put_object
 
 
 class DetectionRule(BaseModel):
@@ -123,6 +123,13 @@ def _create_alert(rule: DetectionRule, run_id: str, events: list[dict], db: Sess
 def list_alerts(db: Session, limit: int = 100) -> list[AlertResponse]:
     alerts = db.scalars(select(Alert).order_by(Alert.created_at.desc()).limit(limit)).all()
     return [_alert_response(alert) for alert in alerts]
+
+
+def get_alert_evidence(alert_id: str, db: Session) -> dict | None:
+    alert = db.get(Alert, alert_id)
+    if alert is None:
+        return None
+    return json.loads(get_object_bytes(alert.evidence_object_key))
 
 
 def _run_response(run: DetectionRun) -> DetectionRunResponse:

@@ -22,7 +22,7 @@ def test_protected_route_accepts_valid_token() -> None:
         scheme="Bearer", credentials="test-token-with-at-least-32-characters"
     )
     assert require_api_token(credentials) is None
-    assert system_info()["milestone"] == "4"
+    assert system_info()["milestone"] == "5"
 
 
 def test_readiness_checks_dependencies() -> None:

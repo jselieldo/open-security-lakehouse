@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>OSL Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <a class="brand" href="#overview" aria-label="Open Security Lakehouse">
+          <span class="brand-mark">O</span>
+          <span><strong>OSL</strong><small>Security Lakehouse</small></span>
+        </a>
+        <nav aria-label="Navegação principal">
+          <button class="nav-item active" data-view="overview"><span>◫</span>Visão geral</button>
+          <button class="nav-item" data-view="investigate"><span>⌕</span>Investigar</button>
+          <button class="nav-item" data-view="alerts"><span>△</span>Alertas</button>
+          <button class="nav-item" data-view="rules"><span>⌘</span>Detecções</button>
+        </nav>
+        <div class="sidebar-foot">
+          <span class="status-dot"></span>
+          <span><strong id="connection-label">Conectando</strong><small>Milestone 5</small></span>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">OPEN SECURITY LAKEHOUSE</p>
+            <h1 id="page-title">Visão geral</h1>
+          </div>
+          <div class="top-actions">
+            <span id="last-refresh" class="muted">Ainda não atualizado</span>
+            <button id="refresh-button" class="icon-button" title="Atualizar dados" aria-label="Atualizar dados">↻</button>
+            <button id="token-button" class="button secondary">Token da API</button>
+          </div>
+        </header>
+
+        <div id="notice" class="notice hidden" role="status"></div>
+
+        <section id="overview-view" class="view active">
+          <div class="hero-panel">
+            <div>
+              <p class="eyebrow cyan">POSTURA OPERACIONAL</p>
+              <h2>O lake está <span>operacional</span></h2>
+              <p>Ingestão, investigação e detecção funcionando sobre evidências preservadas.</p>
+            </div>
+            <div class="pulse-orb" aria-hidden="true"><span></span></div>
+          </div>
+          <div class="metrics" id="metrics"></div>
+          <div class="grid two-columns">
+            <article class="panel">
+              <div class="panel-head"><div><p class="eyebrow">ATIVIDADE</p><h3>Alertas recentes</h3></div><button class="text-button" data-go="alerts">Ver todos →</button></div>
+              <div id="recent-alerts" class="list empty-state">Nenhum alerta carregado.</div>
+            </article>
+            <article class="panel">
+              <div class="panel-head"><div><p class="eyebrow">ARQUITETURA</p><h3>Fluxo de evidências</h3></div></div>
+              <div class="pipeline">
+                <div><span>01</span><strong>Raw</strong><small>JSON imutável</small></div>
+                <i>→</i><div><span>02</span><strong>OCSF</strong><small>Normalização</small></div>
+                <i>→</i><div><span>03</span><strong>Parquet</strong><small>Consulta DuckDB</small></div>
+                <i>→</i><div><span>04</span><strong>Alertas</strong><small>Evidência S3</small></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="investigate-view" class="view">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">DUCKDB INVESTIGATION</p><h3>Pesquisar eventos normalizados</h3></div></div>
+            <form id="search-form" class="filter-grid">
+              <label>Endereço IP<input name="src_ip" placeholder="198.51.100.42" /></label>
+              <label>Fonte<input name="source" placeholder="synthetic-linux" /></label>
+              <label>Severidade mínima<select name="min_severity"><option value="">Todas</option><option value="1">1 · Informativa</option><option value="2">2 · Baixa</option><option value="3">3 · Média</option><option value="4">4 · Alta</option><option value="5">5 · Crítica</option></select></label>
+              <label>Limite<input name="limit" type="number" min="1" max="1000" value="100" /></label>
+              <label>Início<input name="start_time" type="datetime-local" /></label>
+              <label>Fim<input name="end_time" type="datetime-local" /></label>
+              <button class="button primary" type="submit">Executar investigação</button>
+            </form>
+          </article>
+          <article class="panel results-panel">
+            <div class="panel-head"><div><p class="eyebrow">RESULTADOS</p><h3 id="result-title">Aguardando consulta</h3></div><span id="query-meta" class="chip">DuckDB</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Evento</th><th>Fonte</th><th>IP de origem</th><th>Severidade</th></tr></thead><tbody id="events-body"><tr><td colspan="5" class="empty-state">Use os filtros acima para pesquisar o lake.</td></tr></tbody></table></div>
+          </article>
+        </section>
+
+        <section id="alerts-view" class="view">
+          <div class="grid alert-layout">
+            <article class="panel"><div class="panel-head"><div><p class="eyebrow">TRIAGEM</p><h3>Alertas abertos</h3></div></div><div id="alerts-list" class="list"></div></article>
+            <article class="panel evidence-panel"><div class="panel-head"><div><p class="eyebrow">EVIDÊNCIA</p><h3 id="evidence-title">Selecione um alerta</h3></div></div><pre id="evidence-content">A evidência imutável será exibida aqui.</pre></article>
+          </div>
+        </section>
+
+        <section id="rules-view" class="view">
+          <div id="rules-grid" class="grid rules-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="token-dialog">
+      <form method="dialog" id="token-form">
+        <p class="eyebrow">AUTENTICAÇÃO LOCAL</p>
+        <h2>Conectar à API</h2>
+        <p>O token fica somente nesta aba e não é gravado no disco.</p>
+        <label>Bearer token<input id="token-input" type="password" autocomplete="off" required /></label>
+        <div class="dialog-actions"><button value="cancel" class="button secondary">Cancelar</button><button value="default" class="button primary" id="save-token">Conectar</button></div>
+      </form>
+    </dialog>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

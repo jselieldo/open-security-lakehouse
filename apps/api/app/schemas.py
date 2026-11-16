@@ -110,3 +110,15 @@ class AlertResponse(BaseModel):
     event_count: int
     evidence_object_key: str
     created_at: str
+
+
+class DashboardSummary(BaseModel):
+    milestone: str
+    platform_status: str
+    ingestion_batches: int
+    accepted_events: int
+    quarantined_events: int
+    detection_rules: int
+    open_alerts: int
+    detection_runs: int
+    latest_alerts: list[AlertResponse]

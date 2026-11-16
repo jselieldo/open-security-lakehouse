@@ -1,6 +1,6 @@
 # Open Security Lakehouse
 
-Milestone 4 adds detection-as-code, scheduled rule execution, deduplicated alerts, and immutable evidence artifacts to the security lakehouse. The existing pipeline continues to provide raw preservation, OCSF normalization, Parquet, quarantine, idempotent batches, and DuckDB investigations.
+Milestone 5 adds a responsive web console for operational status, investigations, alerts, evidence, and detection rules. It is served by the existing FastAPI container, adding no extra runtime service to the homelab.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -123,6 +123,16 @@ curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
 
 Enabled rules run on their configured interval inside the single API process. Matching event identifiers form a deterministic alert fingerprint, preventing repeated runs from generating duplicate alerts. Full evidence is written under `artifacts/detection-evidence/` and the alert metadata is stored in PostgreSQL.
 
+## Open the web console
+
+The console is available at `http://127.0.0.1:8000/console/`. From another computer, keep the API private and use an SSH tunnel:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 homelab-lan
+```
+
+Open `http://127.0.0.1:8000/console/` and enter the bearer token from the homelab `.env`. The token is kept only in browser `sessionStorage` and disappears when the tab session ends.
+
 ## Operations
 
 ```bash
@@ -149,4 +159,4 @@ See [architecture overview](docs/architecture/overview.md) and [ADR 0001](docs/a
 
 ## Next milestone
 
-Milestone 5 adds the first web console for searches, alerts, evidence, and operational status.
+Milestone 6 adds OIDC authentication, users, RBAC, audit trails, and production-oriented schema migrations.
