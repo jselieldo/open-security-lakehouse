@@ -14,5 +14,5 @@ sudo install -o root -g root -m 0644 "$temporary_file" "$target_file"
 sudo rsyslogd -N1
 sudo systemctl restart rsyslog
 sudo systemctl is-active --quiet rsyslog
-logger --authpriv --priority authpriv.warning --tag osl-homelab "OSL homelab autocollection validation"
+logger -p authpriv.warning -t osl-homelab "OSL homelab autocollection validation"
 echo "Homelab autocollection installed and validation event emitted."
