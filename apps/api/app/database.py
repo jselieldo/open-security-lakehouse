@@ -1,7 +1,17 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine, text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from .config import get_settings
@@ -68,6 +78,53 @@ class Alert(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     event_count: Mapped[int] = mapped_column(Integer, nullable=False)
     evidence_object_key: Mapped[str] = mapped_column(Text, nullable=False)
+    assignee_subject: Mapped[str | None] = mapped_column(String(255), index=True)
+    assignee_username: Mapped[str | None] = mapped_column(String(150))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AlertComment(Base):
+    __tablename__ = "alert_comments"
+
+    comment_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    alert_id: Mapped[str] = mapped_column(ForeignKey("alerts.alert_id"), index=True)
+    author_subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    author_username: Mapped[str] = mapped_column(String(150), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class AlertHistory(Base):
+    __tablename__ = "alert_history"
+
+    history_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    alert_id: Mapped[str] = mapped_column(ForeignKey("alerts.alert_id"), index=True)
+    actor_subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    actor_username: Mapped[str] = mapped_column(String(150), nullable=False)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    old_value: Mapped[str | None] = mapped_column(Text)
+    new_value: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class NotificationDelivery(Base):
+    __tablename__ = "notification_deliveries"
+
+    delivery_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    alert_id: Mapped[str] = mapped_column(ForeignKey("alerts.alert_id"), index=True)
+    channel: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

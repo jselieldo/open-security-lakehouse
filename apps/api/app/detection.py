@@ -15,6 +15,7 @@ from .config import get_settings
 from .database import Alert, DetectionRun
 from .investigation import investigate
 from .metrics import DETECTION_DURATION, DETECTION_RUNS
+from .notifications import notify_new_alert
 from .schemas import AlertResponse, DetectionRunResponse, InvestigationRequest
 from .storage import get_object_bytes, put_object
 
@@ -64,13 +65,19 @@ def execute_rule(rule: DetectionRule, db: Session) -> DetectionRunResponse:
             )
         result = investigate(query)
         run.matched_count = result.returned_count
+        alert_id = None
         if result.returned_count >= rule.threshold:
-            run.alert_created = _create_alert(rule, run_id, result.events, db)
+            alert_id = _create_alert(rule, run_id, result.events, db)
+            run.alert_created = alert_id is not None
         run.status = "completed"
         run.duration_ms = round((perf_counter() - started) * 1000, 3)
         run.completed_at = datetime.now(UTC)
         db.commit()
         db.refresh(run)
+        if alert_id:
+            alert = db.get(Alert, alert_id)
+            if alert:
+                notify_new_alert(alert, db)
         DETECTION_RUNS.labels(rule_id=rule.id, status="completed").inc()
         DETECTION_DURATION.labels(rule_id=rule.id).observe(run.duration_ms / 1000)
         return _run_response(run)
@@ -85,12 +92,14 @@ def execute_rule(rule: DetectionRule, db: Session) -> DetectionRunResponse:
         raise
 
 
-def _create_alert(rule: DetectionRule, run_id: str, events: list[dict], db: Session) -> bool:
+def _create_alert(
+    rule: DetectionRule, run_id: str, events: list[dict], db: Session
+) -> str | None:
     event_ids = sorted(str(event["event_id"]) for event in events)
     fingerprint = sha256(f"{rule.id}:{','.join(event_ids)}".encode()).hexdigest()
     existing = db.scalar(select(Alert).where(Alert.fingerprint == fingerprint))
     if existing:
-        return False
+        return None
 
     alert_id = str(uuid4())
     now = datetime.now(UTC)
@@ -127,13 +136,13 @@ def _create_alert(rule: DetectionRule, run_id: str, events: list[dict], db: Sess
         db.flush()
     except IntegrityError:
         db.rollback()
-        return False
-    return True
+        return None
+    return alert_id
 
 
 def list_alerts(db: Session, limit: int = 100) -> list[AlertResponse]:
     alerts = db.scalars(select(Alert).order_by(Alert.created_at.desc()).limit(limit)).all()
-    return [_alert_response(alert) for alert in alerts]
+    return [alert_response(alert) for alert in alerts]
 
 
 def get_alert_evidence(alert_id: str, db: Session) -> dict | None:
@@ -155,14 +164,18 @@ def _run_response(run: DetectionRun) -> DetectionRunResponse:
     )
 
 
-def _alert_response(alert: Alert) -> AlertResponse:
+def alert_response(alert: Alert) -> AlertResponse:
     return AlertResponse(
         alert_id=alert.alert_id,
         rule_id=alert.rule_id,
         title=alert.title,
         severity=alert.severity,
         status=alert.status,
+        assignee_subject=alert.assignee_subject,
+        assignee_username=alert.assignee_username,
         event_count=alert.event_count,
         evidence_object_key=alert.evidence_object_key,
         created_at=alert.created_at.isoformat(),
+        updated_at=alert.updated_at.isoformat(),
+        resolved_at=alert.resolved_at.isoformat() if alert.resolved_at else None,
     )

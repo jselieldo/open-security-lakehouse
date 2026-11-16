@@ -30,3 +30,6 @@ def test_investigation_console_exposes_event_details() -> None:
     assert 'id="pagination"' in html
     assert "total_count" in javascript
     assert "goToPage" in javascript
+    assert 'id="triage-controls"' in html
+    assert "updateSelectedAlert" in javascript
+    assert "submitAlertComment" in javascript

@@ -106,7 +106,9 @@ ssh \
 
 Sign in to Grafana with `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from the homelab `.env`. The **OSL / Open Security Lakehouse — Operações** dashboard and Prometheus datasource are provisioned from Git and are read-only in the UI.
 
-Prometheus retains up to 15 days or 2 GB, whichever is reached first. Initial alert rules cover API/Vector availability, PostgreSQL or S3 readiness, failed ingestion, high quarantine ratio, storage-metric refresh failures, and Vector event drops. Rules are visible in Prometheus; notification delivery through Alertmanager is deliberately left for a later milestone.
+Prometheus retains up to 15 days or 2 GB, whichever is reached first. Initial alert rules cover API/Vector availability, PostgreSQL or S3 readiness, failed ingestion, high quarantine ratio, storage-metric refresh failures, and Vector event drops.
+
+Alertmanager is available on `http://127.0.0.1:9093`. It receives platform alerts from Prometheus and keeps their grouping and lifecycle visible locally. Configure an external receiver in `infrastructure/alertmanager/alertmanager.yml` when a delivery destination is chosen.
 
 ## Identity, roles, and audit
 
@@ -186,7 +188,17 @@ curl --fail -H "Authorization: Bearer $TOKEN" \
 
 Enabled rules run on their configured interval inside the single API process. Matching event identifiers form a deterministic alert fingerprint, preventing repeated runs from generating duplicate alerts. Full evidence is written under `artifacts/detection-evidence/` and the alert metadata is stored in PostgreSQL.
 
-The bundled high-severity rule examines a moving 20-minute window and excludes `synthetic-linux` and `test-syslog`, so validation traffic does not create operational alerts.
+The bundled high-severity rule examines a moving 20-minute window and excludes `synthetic-linux` and `test-syslog`, so validation traffic does not create operational alerts. Additional rules detect repeated SSH authentication failures and privileged `sudo` commands.
+
+Scheduled rules run in the dedicated `detection-worker`, isolated from API and console traffic. Security alerts support assignment, comments, and controlled transitions between open, investigating, resolved, false-positive, and reopened states. Every change is retained in the alert timeline.
+
+To send newly created security alerts to another system, set an HTTP(S) endpoint in `.env` and recreate the worker:
+
+```text
+ALERT_WEBHOOK_URL=https://example.internal/hooks/osl
+```
+
+Webhook failures are recorded in PostgreSQL and never cancel the detection run.
 
 ## Open the web console
 
@@ -237,6 +249,7 @@ infrastructure/keycloak/     OIDC realm and identity bootstrap
 infrastructure/seaweedfs/    S3 gateway configuration
 infrastructure/vector/       Linux/syslog collector configuration
 infrastructure/prometheus/   scrape configuration and alert rules
+infrastructure/alertmanager/ platform-alert grouping and routing
 infrastructure/grafana/      provisioned datasource and dashboard
 infrastructure/rsyslog/      selective homelab self-collection
 docs/architecture/           current architecture
@@ -250,4 +263,4 @@ See [architecture overview](docs/architecture/overview.md), [ADR 0001](docs/adr/
 
 ## Next milestone
 
-The next operational increment should move scheduled detections to a dedicated worker and add Alertmanager notification delivery.
+The next operational increment should add more data sources, retention policies, and threat-intelligence enrichment.

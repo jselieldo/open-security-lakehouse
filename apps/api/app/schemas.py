@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from ipaddress import ip_address
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -41,6 +41,7 @@ class InvestigationRequest(BaseModel):
     src_ip: str | None = None
     source: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9._-]*$")
     exclude_sources: list[str] = Field(default_factory=list, max_length=20)
+    message_contains: str | None = Field(default=None, min_length=1, max_length=500)
     start_time: datetime | None = None
     end_time: datetime | None = None
     min_severity: int | None = Field(default=None, ge=0, le=6)
@@ -121,9 +122,44 @@ class AlertResponse(BaseModel):
     title: str
     severity: str
     status: str
+    assignee_subject: str | None = None
+    assignee_username: str | None = None
     event_count: int
     evidence_object_key: str
     created_at: str
+    updated_at: str
+    resolved_at: str | None = None
+
+
+class AlertUpdateRequest(BaseModel):
+    status: Literal["open", "investigating", "resolved", "false_positive", "reopened"] | None = None
+    assign_to_me: bool | None = None
+
+
+class AlertCommentRequest(BaseModel):
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class AlertCommentResponse(BaseModel):
+    comment_id: str
+    author_username: str
+    body: str
+    created_at: str
+
+
+class AlertHistoryResponse(BaseModel):
+    history_id: str
+    actor_username: str
+    action: str
+    old_value: str | None
+    new_value: str | None
+    created_at: str
+
+
+class AlertDetailResponse(BaseModel):
+    alert: AlertResponse
+    comments: list[AlertCommentResponse]
+    history: list[AlertHistoryResponse]
 
 
 class DashboardSummary(BaseModel):

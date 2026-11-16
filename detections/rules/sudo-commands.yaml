@@ -1,0 +1,12 @@
+id: sudo-commands
+title: Privileged command execution
+description: Records sudo command execution observed on the homelab.
+severity: medium
+enabled: true
+schedule_minutes: 15
+threshold: 1
+lookback_minutes: 20
+query:
+  source: linux-syslog
+  message_contains: COMMAND=
+  limit: 1000

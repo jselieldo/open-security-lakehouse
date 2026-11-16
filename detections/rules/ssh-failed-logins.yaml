@@ -1,0 +1,12 @@
+id: ssh-failed-logins
+title: Repeated SSH authentication failures
+description: Detects five or more failed SSH password attempts in ten minutes.
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 5
+lookback_minutes: 10
+query:
+  source: linux-syslog
+  message_contains: Failed password
+  limit: 1000

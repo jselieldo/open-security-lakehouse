@@ -98,3 +98,14 @@ def test_result_offset_pages_through_matches(monkeypatch) -> None:
     assert result.total_count == 2
     assert result.offset == 1
     assert result.events[0]["event_id"] == "evt-low"
+
+
+def test_investigation_filters_message_content(monkeypatch) -> None:
+    data = rows()
+    data[0]["raw_event_json"] = '{"message":"Failed password for root"}'
+    body = parquet_bytes(data)
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: ["one.parquet"])
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
+    result = investigate(InvestigationRequest(message_contains="Failed password"))
+    assert result.total_count == 1
+    assert result.events[0]["event_id"] == "evt-high"

@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     max_batch_events: int = Field(default=1000, ge=1, le=10000)
     detection_rules_dir: str = "/app/detections/rules"
     detection_scheduler_enabled: bool = True
+    alert_webhook_url: str | None = None
+    alert_webhook_timeout_seconds: int = Field(default=5, ge=1, le=30)
     auth_mode: Literal["static", "hybrid", "oidc"] = "hybrid"
     oidc_issuer_url: str = "http://127.0.0.1:8080/realms/osl"
     oidc_jwks_url: str = "http://keycloak:8080/realms/osl/protocol/openid-connect/certs"

@@ -92,6 +92,10 @@ def _build_filters(request: InvestigationRequest) -> tuple[str, list[object]]:
         ("event_time <= ?", request.end_time),
         ("severity_id >= ?", request.min_severity),
         ("severity_id <= ?", request.max_severity),
+        (
+            "raw_event_json ILIKE ?",
+            f"%{request.message_contains}%" if request.message_contains else None,
+        ),
     ):
         if value is not None:
             clauses.append(expression)

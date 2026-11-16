@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <title>OSL Console</title>
-    <link rel="stylesheet" href="./styles.css?v=20261116-3" />
+    <link rel="stylesheet" href="./styles.css?v=20261116-4" />
   </head>
   <body>
     <div class="shell">
@@ -117,7 +117,18 @@
         <section id="alerts-view" class="view">
           <div class="grid alert-layout">
             <article class="panel"><div class="panel-head"><div><p class="eyebrow">TRIAGEM</p><h3>Alertas abertos</h3></div></div><div id="alerts-list" class="list"></div></article>
-            <article class="panel evidence-panel"><div class="panel-head"><div><p class="eyebrow">EVIDÊNCIA</p><h3 id="evidence-title">Selecione um alerta</h3></div></div><pre id="evidence-content">A evidência imutável será exibida aqui.</pre></article>
+            <article class="panel evidence-panel">
+              <div class="panel-head"><div><p class="eyebrow">TRATAMENTO</p><h3 id="evidence-title">Selecione um alerta</h3></div><span id="alert-status" class="badge hidden"></span></div>
+              <div id="triage-controls" class="triage-controls hidden">
+                <label>Estado<select id="alert-status-select"><option value="open">Aberto</option><option value="investigating">Em investigação</option><option value="resolved">Resolvido</option><option value="false_positive">Falso positivo</option><option value="reopened">Reaberto</option></select></label>
+                <button id="save-alert-status" class="button primary" type="button">Atualizar estado</button>
+                <button id="assign-alert" class="button secondary" type="button">Assumir alerta</button>
+              </div>
+              <div id="alert-assignee" class="assignee muted hidden"></div>
+              <form id="alert-comment-form" class="comment-form hidden"><label>Adicionar comentário<textarea id="alert-comment" maxlength="5000" required placeholder="Registre a análise, decisão ou próximo passo."></textarea></label><button class="button secondary" type="submit">Comentar</button></form>
+              <div id="alert-timeline" class="alert-timeline hidden"></div>
+              <details class="raw-details"><summary>Evidência imutável</summary><pre id="evidence-content">Selecione um alerta para exibir a evidência.</pre></details>
+            </article>
           </div>
         </section>
 
@@ -137,6 +148,6 @@
         <div class="dialog-actions"><button value="cancel" class="button secondary">Cancelar</button><button value="default" class="button primary" id="save-token">Conectar</button></div>
       </form>
     </dialog>
-    <script src="./app.js?v=20261116-3" defer></script>
+    <script src="./app.js?v=20261116-4" defer></script>
   </body>
 </html>

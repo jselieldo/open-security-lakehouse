@@ -1,4 +1,4 @@
-const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], events: [], selectedEvent: null, searchPayload: null, currentPage: 1, totalPages: 1, auth: null };
+const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], selectedAlertId: null, events: [], selectedEvent: null, searchPayload: null, currentPage: 1, totalPages: 1, auth: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -230,16 +230,60 @@ async function loadAlerts() {
     state.alerts = await api("/api/v1/alerts?limit=100");
     const target = $("#alerts-list");
     target.innerHTML = state.alerts.length ? state.alerts.map((alert) => `<div class="list-item"><button data-alert="${escapeHtml(alert.alert_id)}"><strong>${escapeHtml(alert.title)}</strong><small>${formatDate(alert.created_at)} · ${alert.event_count} eventos</small></button><span class="badge">${escapeHtml(alert.severity)}</span></div>`).join("") : '<div class="empty-state">Nenhum alerta encontrado.</div>';
-    $$('[data-alert]').forEach((button) => button.addEventListener("click", () => loadEvidence(button.dataset.alert)));
+    $$('[data-alert]').forEach((button) => button.addEventListener("click", () => loadAlertDetail(button.dataset.alert)));
   } catch (error) { handleError(error); }
 }
 
-async function loadEvidence(alertId) {
+async function loadAlertDetail(alertId) {
   try {
-    const evidence = await api(`/api/v1/alerts/${encodeURIComponent(alertId)}/evidence`);
+    state.selectedAlertId = alertId;
+    const [detail, evidence] = await Promise.all([
+      api(`/api/v1/alerts/${encodeURIComponent(alertId)}`),
+      api(`/api/v1/alerts/${encodeURIComponent(alertId)}/evidence`),
+    ]);
     $("#evidence-title").textContent = evidence.rule.title;
     $("#evidence-content").textContent = JSON.stringify(evidence, null, 2);
+    $("#alert-status").textContent = detail.alert.status.replaceAll("_", " ");
+    $("#alert-status").classList.remove("hidden");
+    $("#alert-status-select").value = detail.alert.status;
+    const allowed = {
+      open: ["open", "investigating", "resolved", "false_positive"],
+      investigating: ["investigating", "open", "resolved", "false_positive"],
+      resolved: ["resolved", "reopened"],
+      false_positive: ["false_positive", "reopened"],
+      reopened: ["reopened", "investigating", "resolved", "false_positive"],
+    }[detail.alert.status] || [detail.alert.status];
+    [...$("#alert-status-select").options].forEach((option) => { option.disabled = !allowed.includes(option.value); });
+    $("#triage-controls").classList.remove("hidden");
+    $("#alert-comment-form").classList.remove("hidden");
+    $("#alert-assignee").textContent = detail.alert.assignee_username ? `Responsável: ${detail.alert.assignee_username}` : "Sem responsável";
+    $("#alert-assignee").classList.remove("hidden");
+    $("#assign-alert").dataset.assigned = detail.alert.assignee_username ? "true" : "false";
+    $("#assign-alert").textContent = detail.alert.assignee_username ? "Liberar responsável" : "Assumir alerta";
+    const timeline = [
+      ...detail.history.map((item) => ({ at: item.created_at, title: item.action.replaceAll("_", " "), text: `${item.actor_username}${item.new_value ? ` · ${item.new_value}` : ""}` })),
+      ...detail.comments.map((item) => ({ at: item.created_at, title: `Comentário · ${item.author_username}`, text: item.body })),
+    ].sort((a, b) => new Date(b.at) - new Date(a.at));
+    $("#alert-timeline").innerHTML = timeline.length ? timeline.map((item) => `<div><span></span><p><strong>${escapeHtml(item.title)}</strong><small>${formatDate(item.at)}</small>${escapeHtml(item.text)}</p></div>`).join("") : '<div class="empty-state">Nenhuma ação de triagem registrada.</div>';
+    $("#alert-timeline").classList.remove("hidden");
   } catch (error) { handleError(error); }
+}
+
+async function updateSelectedAlert(payload) {
+  if (!state.selectedAlertId) return;
+  await api(`/api/v1/alerts/${encodeURIComponent(state.selectedAlertId)}`, { method: "PATCH", body: JSON.stringify(payload) });
+  await loadAlertDetail(state.selectedAlertId);
+  await loadAlerts();
+}
+
+async function submitAlertComment(event) {
+  event.preventDefault();
+  const input = $("#alert-comment");
+  const body = input.value.trim();
+  if (!body || !state.selectedAlertId) return;
+  await api(`/api/v1/alerts/${encodeURIComponent(state.selectedAlertId)}/comments`, { method: "POST", body: JSON.stringify({ body }) });
+  input.value = "";
+  await loadAlertDetail(state.selectedAlertId);
 }
 
 async function loadRules() {
@@ -291,6 +335,9 @@ $("#first-page").addEventListener("click", () => goToPage(1));
 $("#previous-page").addEventListener("click", () => goToPage(state.currentPage - 1));
 $("#next-page").addEventListener("click", () => goToPage(state.currentPage + 1));
 $("#last-page").addEventListener("click", () => goToPage(state.totalPages));
+$("#save-alert-status").addEventListener("click", () => updateSelectedAlert({ status: $("#alert-status-select").value }).catch(handleError));
+$("#assign-alert").addEventListener("click", () => updateSelectedAlert({ assign_to_me: $("#assign-alert").dataset.assigned !== "true" }).catch(handleError));
+$("#alert-comment-form").addEventListener("submit", (event) => submitAlertComment(event).catch(handleError));
 $("#refresh-button").addEventListener("click", () => switchView($(".nav-item.active").dataset.view));
 $("#token-button").addEventListener("click", () => $("#token-dialog").showModal());
 $("#oidc-login").addEventListener("click", () => beginOidcLogin().catch(handleError));

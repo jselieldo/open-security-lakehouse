@@ -41,9 +41,12 @@ from .metrics import (
     METRICS_REFRESH_FAILURES,
     render_metrics,
 )
-from .scheduler import start_scheduler, stop_scheduler
 from .schemas import (
+    AlertCommentRequest,
+    AlertCommentResponse,
+    AlertDetailResponse,
     AlertResponse,
+    AlertUpdateRequest,
     AuditLogResponse,
     AuthConfigResponse,
     BatchStatusResponse,
@@ -58,19 +61,18 @@ from .schemas import (
 )
 from .security import Principal, get_current_principal, require_roles
 from .storage import check_storage, ensure_bucket, lake_storage_stats
+from .triage import InvalidAlertTransitionError, add_comment, get_alert_detail, update_alert
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_bucket()
-    start_scheduler()
     yield
-    stop_scheduler()
 
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.8.0",
+    version="0.10.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -140,7 +142,7 @@ def auth_config() -> AuthConfigResponse:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_roles("viewer"))], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "8", "version": "0.8.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "10", "version": "0.10.0"}
 
 
 @app.get("/api/v1/users/me", response_model=UserResponse, tags=["users"])
@@ -292,6 +294,60 @@ def read_alerts(limit: int = 100, db: Session = Depends(get_db)) -> list[AlertRe
 
 
 @app.get(
+    "/api/v1/alerts/{alert_id}",
+    response_model=AlertDetailResponse,
+    tags=["alerts"],
+)
+def read_alert_detail(
+    alert_id: str,
+    _: Annotated[Principal, Depends(require_roles("viewer", "analyst"))],
+    db: Session = Depends(get_db),
+) -> AlertDetailResponse:
+    detail = get_alert_detail(alert_id, db)
+    if detail is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="alert not found")
+    return detail
+
+
+@app.patch(
+    "/api/v1/alerts/{alert_id}",
+    response_model=AlertResponse,
+    tags=["alerts"],
+)
+def patch_alert(
+    alert_id: str,
+    payload: AlertUpdateRequest,
+    principal: Annotated[Principal, Depends(require_roles("analyst"))],
+    db: Session = Depends(get_db),
+) -> AlertResponse:
+    try:
+        alert = update_alert(alert_id, payload, principal, db)
+    except InvalidAlertTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    if alert is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="alert not found")
+    return alert
+
+
+@app.post(
+    "/api/v1/alerts/{alert_id}/comments",
+    response_model=AlertCommentResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["alerts"],
+)
+def create_alert_comment(
+    alert_id: str,
+    payload: AlertCommentRequest,
+    principal: Annotated[Principal, Depends(require_roles("analyst"))],
+    db: Session = Depends(get_db),
+) -> AlertCommentResponse:
+    comment = add_comment(alert_id, payload.body, principal, db)
+    if comment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="alert not found")
+    return comment
+
+
+@app.get(
     "/api/v1/alerts/{alert_id}/evidence",
     dependencies=[Depends(require_roles("viewer", "analyst"))],
     tags=["alerts"],
@@ -314,11 +370,16 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     accepted = db.scalar(select(func.coalesce(func.sum(IngestionBatch.accepted_count), 0))) or 0
     quarantined = db.scalar(select(func.coalesce(func.sum(IngestionBatch.rejected_count), 0))) or 0
     open_alerts = (
-        db.scalar(select(func.count()).select_from(Alert).where(Alert.status == "open")) or 0
+        db.scalar(
+            select(func.count())
+            .select_from(Alert)
+            .where(Alert.status.in_(["open", "investigating", "reopened"]))
+        )
+        or 0
     )
     runs = db.scalar(select(func.count()).select_from(DetectionRun)) or 0
     return DashboardSummary(
-        milestone="8",
+        milestone="10",
         platform_status="operational",
         ingestion_batches=batches,
         accepted_events=accepted,
