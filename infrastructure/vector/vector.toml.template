@@ -9,7 +9,7 @@ type = "syslog"
 address = "0.0.0.0:5514"
 mode = "tcp"
 max_length = 102400
-permit_origin = ["${SYSLOG_ALLOWED_CIDR}"]
+permit_origin = ["__SYSLOG_ALLOWED_CIDR__"]
 
 [transforms.tag_source]
 type = "remap"

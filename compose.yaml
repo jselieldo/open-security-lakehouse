@@ -8,15 +8,18 @@ services:
       COLLECTOR_API_TOKEN: ${COLLECTOR_API_TOKEN:?Set COLLECTOR_API_TOKEN in .env}
       SYSLOG_ALLOWED_CIDR: ${SYSLOG_ALLOWED_CIDR:-192.168.0.0/16}
     volumes:
-      - ./infrastructure/vector/vector.toml:/etc/vector/vector.toml:ro
+      - ./infrastructure/vector/vector.toml.template:/etc/vector/vector.toml.template:ro
+      - ./infrastructure/vector/entrypoint.sh:/entrypoint.sh:ro
       - vector-data:/var/lib/vector
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    command: ["--config", "/tmp/vector.toml"]
     ports:
       - "${SYSLOG_BIND_ADDRESS:-0.0.0.0}:${SYSLOG_PORT:-5514}:5514/tcp"
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "vector", "validate", "/etc/vector/vector.toml"]
+      test: ["CMD", "vector", "validate", "/tmp/vector.toml"]
       interval: 15s
       timeout: 10s
       retries: 4
