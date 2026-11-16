@@ -87,7 +87,11 @@ services:
       - ./infrastructure/seaweedfs/entrypoint.sh:/entrypoint.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://seaweed-s3:8333"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -S --spider http://seaweed-s3:8333/ 2>&1 | grep -Eq 'HTTP/1.1 (200|403)'",
+        ]
       interval: 5s
       timeout: 5s
       retries: 12
