@@ -31,7 +31,7 @@ for _ in $(seq 1 20); do
     'import json,os,sys; data=json.loads(os.environ["RESPONSE"]); sys.exit(0 if any(os.environ["MARKER"] in e["raw_event_json"] for e in data["events"]) else 1)'
   then
     RESPONSE="$response" python3 -c \
-      'import json,os; d=json.loads(os.environ["RESPONSE"]); print(f"Milestone 7 smoke test passed: {d[\"returned_count\"]} Linux/syslog event(s) queryable.")'
+      'import json,os; d=json.loads(os.environ["RESPONSE"]); print("Milestone 7 smoke test passed: {} Linux/syslog event(s) queryable.".format(d["returned_count"]))'
     exit 0
   fi
   sleep 1
