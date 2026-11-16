@@ -1,6 +1,6 @@
 # Open Security Lakehouse
 
-Milestone 2 is an executable first-data pipeline for a security lakehouse on a native Linux host with 16 GB RAM. It provides a FastAPI control plane, PostgreSQL batch metadata, Apache-2.0-licensed SeaweedFS object storage, raw-event preservation, initial OCSF normalization, Parquet output, quarantine, idempotency, and automated validation.
+Milestone 3 adds controlled historical investigations with DuckDB to the executable first-data pipeline. The platform provides a FastAPI control plane, PostgreSQL batch metadata, SeaweedFS object storage, raw-event preservation, initial OCSF normalization, Parquet output, quarantine, idempotency, and searches by IP, time, source, and severity.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -47,6 +47,7 @@ curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
 ./scripts/smoke-test.sh
 ./scripts/milestone2-smoke-test.sh
 docker compose exec -T api python - < scripts/verify-milestone2-storage.py
+./scripts/milestone3-smoke-test.sh
 ```
 
 Expected readiness response:
@@ -83,6 +84,26 @@ curl --fail -H "Authorization: Bearer $OSL_API_TOKEN" \
   http://127.0.0.1:8000/api/v1/ingestion/batches/<batch-id>
 ```
 
+## Investigate normalized events
+
+Investigations accept structured filters only; clients cannot submit arbitrary SQL:
+
+```bash
+curl --fail \
+  -H "Authorization: Bearer $OSL_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "src_ip": "198.51.100.42",
+    "source": "synthetic-linux",
+    "start_time": "2026-11-15T00:00:00Z",
+    "min_severity": 2,
+    "limit": 100
+  }' \
+  http://127.0.0.1:8000/api/v1/investigations/search
+```
+
+The API lists matching Parquet objects through the S3 contract, loads their Arrow tables, and executes a parameterized DuckDB query. The response includes scanned object count, duration, and matching events.
+
 ## Operations
 
 ```bash
@@ -109,4 +130,4 @@ See [architecture overview](docs/architecture/overview.md) and [ADR 0001](docs/a
 
 ## Next milestone
 
-Milestone 3 adds DuckDB-backed investigation by IP, time range, source, and severity over the normalized Parquet data.
+Milestone 4 adds detection-as-code, scheduled rules, alerts, and evidence linked to the immutable lake objects.

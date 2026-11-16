@@ -1,6 +1,8 @@
+from datetime import datetime
+from ipaddress import ip_address
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class IngestionRequest(BaseModel):
@@ -32,3 +34,47 @@ class IngestionResponse(BaseModel):
 class BatchStatusResponse(IngestionResponse):
     created_at: str
     completed_at: str | None = None
+
+
+class InvestigationRequest(BaseModel):
+    src_ip: str | None = None
+    source: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    min_severity: int | None = Field(default=None, ge=0, le=6)
+    max_severity: int | None = Field(default=None, ge=0, le=6)
+    limit: int = Field(default=100, ge=1, le=1000)
+
+    @field_validator("src_ip")
+    @classmethod
+    def validate_src_ip(cls, value: str | None) -> str | None:
+        if value is not None:
+            ip_address(value)
+        return value
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("investigation timestamps must include a timezone")
+        return value
+
+    @model_validator(mode="after")
+    def validate_ranges(self):
+        if self.start_time and self.end_time and self.start_time > self.end_time:
+            raise ValueError("start_time must be before or equal to end_time")
+        if (
+            self.min_severity is not None
+            and self.max_severity is not None
+            and self.min_severity > self.max_severity
+        ):
+            raise ValueError("min_severity must be less than or equal to max_severity")
+        return self
+
+
+class InvestigationResponse(BaseModel):
+    query_engine: str
+    scanned_objects: int
+    returned_count: int
+    duration_ms: float
+    events: list[dict[str, Any]]

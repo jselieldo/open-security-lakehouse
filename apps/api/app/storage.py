@@ -36,3 +36,17 @@ def put_object(key: str, body: bytes, content_type: str) -> None:
         Body=body,
         ContentType=content_type,
     )
+
+
+def list_object_keys(prefix: str) -> list[str]:
+    client = get_s3_client()
+    paginator = client.get_paginator("list_objects_v2")
+    keys: list[str] = []
+    for page in paginator.paginate(Bucket=get_settings().s3_bucket, Prefix=prefix):
+        keys.extend(item["Key"] for item in page.get("Contents", []))
+    return keys
+
+
+def get_object_bytes(key: str) -> bytes:
+    response = get_s3_client().get_object(Bucket=get_settings().s3_bucket, Key=key)
+    return response["Body"].read()

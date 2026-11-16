@@ -10,7 +10,14 @@ from .ingestion import (
     get_batch_status,
     ingest_batch,
 )
-from .schemas import BatchStatusResponse, IngestionRequest, IngestionResponse
+from .investigation import investigate
+from .schemas import (
+    BatchStatusResponse,
+    IngestionRequest,
+    IngestionResponse,
+    InvestigationRequest,
+    InvestigationResponse,
+)
 from .security import require_api_token
 from .storage import check_storage, ensure_bucket
 
@@ -24,7 +31,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.2.0",
+    version="0.3.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -55,7 +62,7 @@ def ready() -> dict[str, str]:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_api_token)], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "2", "version": "0.2.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "3", "version": "0.3.0"}
 
 
 @app.post(
@@ -89,3 +96,13 @@ def read_ingestion_batch(batch_id: str, db: Session = Depends(get_db)) -> BatchS
     if batch is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="batch not found")
     return batch
+
+
+@app.post(
+    "/api/v1/investigations/search",
+    response_model=InvestigationResponse,
+    dependencies=[Depends(require_api_token)],
+    tags=["investigations"],
+)
+def search_security_events(payload: InvestigationRequest) -> InvestigationResponse:
+    return investigate(payload)

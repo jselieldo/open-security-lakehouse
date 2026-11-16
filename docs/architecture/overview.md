@@ -19,7 +19,7 @@ PostgreSQL  S3 contract
   loopback, while PostgreSQL remains private because it has no published ports.
 - Liveness verifies the API process. Readiness verifies PostgreSQL and the configured S3 bucket.
 - Milestone 2 writes immutable raw JSON, OCSF-normalized Parquet, and validation failures to quarantine. PostgreSQL tracks batch state and idempotency.
-- Milestone 3 can add DuckDB behind a query interface; the interface can later target Trino/Iceberg.
+- Milestone 3 uses DuckDB behind a structured query interface. S3 objects are loaded as Arrow tables, keeping arbitrary SQL outside the public API. The interface can later target Trino/Iceberg.
 
 ## Intended object layout
 
