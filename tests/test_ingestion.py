@@ -5,7 +5,13 @@ from datetime import UTC, datetime
 import pyarrow.parquet as pq
 import pytest
 from app.database import Base, IngestionBatch
-from app.ingestion import BatchConflictError, _parquet_bytes, get_batch_status, ingest_batch
+from app.ingestion import (
+    BatchConflictError,
+    _parquet_bytes,
+    get_batch_status,
+    ingest_batch,
+    vector_events_to_request,
+)
 from app.normalization import normalize_events
 from app.schemas import IngestionRequest
 from sqlalchemy import create_engine
@@ -138,3 +144,26 @@ def test_batch_status_is_persisted(db: Session) -> None:
     assert status is not None
     assert status.batch_id == "known"
     assert get_batch_status("missing", db) is None
+
+
+def test_vector_ndjson_is_converted_to_idempotent_linux_batch() -> None:
+    body = (
+        b'{"message":"sshd login failed","severity":"err",'
+        b'"timestamp":"2026-11-15T12:00:00Z","source_ip":"192.0.2.10"}\n'
+        b'{"message":"session opened","severity":"info",'
+        b'"timestamp":"2026-11-15T12:00:01Z"}\n'
+    )
+    first = vector_events_to_request(body)
+    second = vector_events_to_request(body)
+    assert first.batch_id == second.batch_id
+    assert first.source == "linux-syslog"
+    assert first.events[0]["severity_id"] == 4
+    assert first.events[0]["src_endpoint"] == {"ip": "192.0.2.10"}
+    assert first.events[1]["severity_id"] == 1
+
+
+def test_vector_payload_rejects_empty_or_non_object_content() -> None:
+    with pytest.raises(ValueError):
+        vector_events_to_request(b"")
+    with pytest.raises(ValueError):
+        vector_events_to_request(b"[1, 2]")

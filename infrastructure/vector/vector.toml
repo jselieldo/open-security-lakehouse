@@ -1,0 +1,47 @@
+data_dir = "/var/lib/vector"
+
+[api]
+enabled = true
+address = "0.0.0.0:8686"
+
+[sources.linux_syslog]
+type = "syslog"
+address = "0.0.0.0:5514"
+mode = "tcp"
+max_length = 102400
+permit_origin = ["${SYSLOG_ALLOWED_CIDR}"]
+
+[transforms.tag_source]
+type = "remap"
+inputs = ["linux_syslog"]
+source = '''
+.osl_source = "linux-syslog"
+'''
+
+[sinks.osl_api]
+type = "http"
+inputs = ["tag_source"]
+uri = "http://api:8000/api/v1/ingestion/vector"
+method = "post"
+compression = "none"
+healthcheck.enabled = false
+acknowledgements.enabled = true
+
+[sinks.osl_api.auth]
+strategy = "bearer"
+token = "${COLLECTOR_API_TOKEN}"
+
+[sinks.osl_api.encoding]
+codec = "json"
+
+[sinks.osl_api.framing]
+method = "newline_delimited"
+
+[sinks.osl_api.batch]
+max_events = 100
+timeout_secs = 2
+
+[sinks.osl_api.buffer]
+type = "disk"
+max_size = 268435488
+when_full = "block"

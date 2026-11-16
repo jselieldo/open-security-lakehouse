@@ -1,6 +1,30 @@
 name: open-security-lakehouse
 
 services:
+  vector:
+    image: timberio/vector:0.61.0-debian
+    restart: unless-stopped
+    environment:
+      COLLECTOR_API_TOKEN: ${COLLECTOR_API_TOKEN:?Set COLLECTOR_API_TOKEN in .env}
+      SYSLOG_ALLOWED_CIDR: ${SYSLOG_ALLOWED_CIDR:-192.168.0.0/16}
+    volumes:
+      - ./infrastructure/vector/vector.toml:/etc/vector/vector.toml:ro
+      - vector-data:/var/lib/vector
+    ports:
+      - "${SYSLOG_BIND_ADDRESS:-0.0.0.0}:${SYSLOG_PORT:-5514}:5514/tcp"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "vector", "validate", "--no-environment", "/etc/vector/vector.toml"]
+      interval: 15s
+      timeout: 10s
+      retries: 4
+      start_period: 10s
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+
   keycloak-db:
     image: postgres:16.6-alpine
     restart: unless-stopped
@@ -177,6 +201,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       OSL_API_TOKEN: ${OSL_API_TOKEN:?Set OSL_API_TOKEN in .env}
+      COLLECTOR_API_TOKEN: ${COLLECTOR_API_TOKEN:?Set COLLECTOR_API_TOKEN in .env}
       AUTH_MODE: ${AUTH_MODE:-oidc}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://127.0.0.1:8080/realms/osl}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/osl/protocol/openid-connect/certs}
@@ -222,4 +247,5 @@ volumes:
   seaweed-volume-data:
   seaweed-filer-data:
   keycloak-db-data:
+  vector-data:
 

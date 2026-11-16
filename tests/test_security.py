@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from app.database import AuditLog, Base, SessionLocal, engine
-from app.security import Principal, _decode_oidc_token, require_roles
+from app.security import Principal, _collector_principal, _decode_oidc_token, require_roles
 from fastapi import HTTPException
 from sqlalchemy import select
 from starlette.requests import Request
@@ -63,3 +63,11 @@ def test_admin_bypasses_specific_role_requirement() -> None:
 def test_unknown_role_in_route_configuration_fails_fast() -> None:
     with pytest.raises(ValueError):
         require_roles("superuser")
+
+
+def test_collector_token_is_scoped_to_ingestion() -> None:
+    collector = _collector_principal("test-collector-token-with-at-least-32-chars")
+    assert collector is not None
+    assert collector.roles == frozenset({"ingestor"})
+    assert collector.auth_method == "collector_token"
+    assert _collector_principal("wrong") is None

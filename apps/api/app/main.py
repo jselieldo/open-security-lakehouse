@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
@@ -30,6 +30,7 @@ from .ingestion import (
     BatchTooLargeError,
     get_batch_status,
     ingest_batch,
+    vector_events_to_request,
 )
 from .investigation import investigate
 from .scheduler import start_scheduler, stop_scheduler
@@ -61,7 +62,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.6.0",
+    version="0.7.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -102,7 +103,7 @@ def auth_config() -> AuthConfigResponse:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_roles("viewer"))], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "6", "version": "0.6.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "7", "version": "0.7.0"}
 
 
 @app.get("/api/v1/users/me", response_model=UserResponse, tags=["users"])
@@ -158,6 +159,30 @@ def create_ingestion_batch(
 ) -> IngestionResponse:
     try:
         return ingest_batch(payload, db)
+    except BatchConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except BatchTooLargeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post(
+    "/api/v1/ingestion/vector",
+    response_model=IngestionResponse,
+    dependencies=[Depends(require_roles("ingestor"))],
+    tags=["ingestion"],
+)
+async def create_vector_batch(request: Request, db: Session = Depends(get_db)) -> IngestionResponse:
+    try:
+        payload = vector_events_to_request(await request.body())
+        return ingest_batch(payload, db)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid Vector payload",
+        ) from exc
     except BatchConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except BatchTooLargeError as exc:
@@ -256,7 +281,7 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     )
     runs = db.scalar(select(func.count()).select_from(DetectionRun)) or 0
     return DashboardSummary(
-        milestone="6",
+        milestone="7",
         platform_status="operational",
         ingestion_batches=batches,
         accepted_events=accepted,

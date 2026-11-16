@@ -1,6 +1,6 @@
 # Open Security Lakehouse
 
-Milestone 6 adds Keycloak OIDC login, persisted users, role-based access control, audit trails, and Alembic database migrations. The legacy bearer token remains available only when `AUTH_MODE=hybrid` or `static`.
+Milestone 7 adds the first real data collector: Vector receives Linux/syslog over TCP, applies backpressure through a durable disk buffer, and forwards batches to a machine-authenticated ingestion endpoint. Milestone 6 OIDC, users, RBAC, audit, and Alembic remain the control-plane security foundation.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -49,6 +49,7 @@ docker compose exec -T api python - < scripts/verify-milestone2-storage.py
 ./scripts/milestone4-smoke-test.sh
 docker compose exec -T api python - < scripts/verify-milestone4-evidence.py
 ./scripts/milestone6-smoke-test.sh
+./scripts/milestone7-smoke-test.sh
 ```
 
 Expected readiness response:
@@ -66,6 +67,29 @@ make test
 ```
 
 The unit suite does not need Docker. Smoke tests require the full Compose stack and obtain an OIDC access token from Keycloak.
+
+## Collect Linux/syslog events
+
+Vector 0.61.0 listens for RFC 3164/5424 syslog over TCP on port 5514. Restrict `SYSLOG_ALLOWED_CIDR` in `.env` to the homelab subnet before starting. UDP is intentionally disabled because it cannot provide delivery feedback.
+
+Configure a Linux client with rsyslog:
+
+```text
+# /etc/rsyslog.d/60-osl.conf
+*.* action(type="omfwd" target="<homelab-ip>" port="5514" protocol="tcp"
+           action.resumeRetryCount="-1" queue.type="linkedList"
+           queue.filename="osl-forward" queue.saveOnShutdown="on")
+```
+
+Restart rsyslog and verify the path:
+
+```bash
+sudo systemctl restart rsyslog
+logger -p auth.warning "OSL syslog validation"
+./scripts/milestone7-smoke-test.sh
+```
+
+Vector stores pending delivery data in the `vector-data` volume. Its dedicated bearer credential maps to an `ingestor`-only machine principal; it cannot read investigations, alerts, users, or audit logs. The `/api/v1/ingestion/vector` adapter generates deterministic batch and event identifiers so HTTP retries remain idempotent.
 
 ## Identity, roles, and audit
 
@@ -171,6 +195,7 @@ Back up the named volumes before upgrades. Do not expose ports 8000 or 8080 publ
 apps/api/                    FastAPI control plane
 infrastructure/keycloak/     OIDC realm and identity bootstrap
 infrastructure/seaweedfs/    S3 gateway configuration
+infrastructure/vector/       Linux/syslog collector configuration
 docs/architecture/           current architecture
 docs/adr/                    architecture decisions
 scripts/                     operator smoke tests
@@ -182,4 +207,4 @@ See [architecture overview](docs/architecture/overview.md), [ADR 0001](docs/adr/
 
 ## Next milestone
 
-Milestone 7 can add TLS termination, refresh-token lifecycle, identity federation, and a multi-process scheduler/worker split.
+The next operational increment should add Prometheus/Grafana metrics, ingestion performance measurements, and platform alerts. Backup/restore and a dedicated detection worker follow immediately after observability.

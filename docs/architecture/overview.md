@@ -10,6 +10,8 @@ Browser --OIDC/PKCE--> Keycloak --dedicated DB--> PostgreSQL
                      S3 contract
                          |
                       SeaweedFS
+
+Linux/rsyslog --TCP 5514--> Vector --disk buffer--> FastAPI ingestion
 ```
 
 - PostgreSQL stores operational metadata only; security events will live in object storage.
@@ -22,6 +24,7 @@ Browser --OIDC/PKCE--> Keycloak --dedicated DB--> PostgreSQL
 - Milestone 4 keeps versioned YAML rules in Git, schedules them in the control plane, stores alert state in PostgreSQL, and writes immutable evidence to the object lake. Event fingerprints deduplicate repeated matches.
 - Milestone 5 serves a static, responsive console from FastAPI. It calls only structured authenticated APIs and stores its bearer token in browser session memory.
 - Milestone 6 uses Keycloak as the OIDC provider. FastAPI validates RS256 signatures, issuer, audience, and required claims, then enforces realm roles. First-seen user attributes and per-request audit records stay in PostgreSQL. Alembic owns schema evolution and runs before the API process.
+- Milestone 7 adds Vector as the first data-plane collector. TCP syslog is CIDR-restricted, delivery to FastAPI is retried from a durable disk buffer, and a separate ingestion-only machine token prevents the collector from acquiring control-plane read access.
 
 ## Intended object layout
 

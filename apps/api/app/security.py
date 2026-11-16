@@ -58,6 +58,20 @@ def _legacy_principal(token: str) -> Principal | None:
     )
 
 
+def _collector_principal(token: str) -> Principal | None:
+    configured = get_settings().collector_api_token
+    if configured is None or not hmac.compare_digest(token, configured.get_secret_value()):
+        return None
+    return Principal(
+        subject="collector:vector-linux-syslog",
+        username="vector-linux-syslog",
+        email=None,
+        display_name="Vector Linux/syslog collector",
+        roles=frozenset({"ingestor"}),
+        auth_method="collector_token",
+    )
+
+
 def _decode_oidc_token(token: str) -> Principal:
     settings = get_settings()
     if settings.auth_mode not in {"oidc", "hybrid"}:
@@ -136,6 +150,8 @@ def get_current_principal(
         raise _unauthorized()
     token = credentials.credentials
     principal = _legacy_principal(token)
+    if principal is None:
+        principal = _collector_principal(token)
     if principal is None:
         principal = _decode_oidc_token(token)
     _record_access(principal, request, "allowed")

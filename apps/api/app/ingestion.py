@@ -147,3 +147,58 @@ class BatchTooLargeError(Exception):
     def __init__(self, limit: int):
         self.limit = limit
         super().__init__(f"batch exceeds limit of {limit} events")
+
+
+def vector_events_to_request(body: bytes) -> IngestionRequest:
+    events = _parse_vector_body(body)
+    canonical = json.dumps(events, separators=(",", ":"), sort_keys=True, default=str)
+    batch_id = f"vector-{sha256(canonical.encode()).hexdigest()[:32]}"
+    normalized_events = [_vector_event(event, index) for index, event in enumerate(events)]
+    return IngestionRequest(
+        batch_id=batch_id,
+        source="linux-syslog",
+        events=normalized_events,
+    )
+
+
+def _parse_vector_body(body: bytes) -> list[dict[str, Any]]:
+    if not body.strip():
+        raise ValueError("empty Vector payload")
+    try:
+        decoded = json.loads(body)
+        items = decoded if isinstance(decoded, list) else [decoded]
+    except json.JSONDecodeError:
+        items = [json.loads(line) for line in body.splitlines() if line.strip()]
+    if not items or any(not isinstance(item, dict) for item in items):
+        raise ValueError("Vector payload must contain JSON objects")
+    return items
+
+
+def _vector_event(event: dict[str, Any], index: int) -> dict[str, Any]:
+    timestamp = event.get("timestamp") or datetime.now(UTC).isoformat()
+    severity = str(event.get("severity", "info")).lower()
+    severity_id = {
+        "emerg": 6,
+        "alert": 6,
+        "crit": 5,
+        "err": 4,
+        "warning": 3,
+        "notice": 2,
+        "info": 1,
+        "debug": 0,
+    }.get(severity, 1)
+    canonical = json.dumps(event, separators=(",", ":"), sort_keys=True, default=str)
+    result: dict[str, Any] = {
+        "event_id": f"syslog-{sha256(f'{index}:{canonical}'.encode()).hexdigest()[:32]}",
+        "event_time": timestamp,
+        "severity_id": severity_id,
+        "class_uid": 4002,
+        "message": event.get("message", ""),
+        "hostname": event.get("hostname"),
+        "application": event.get("appname"),
+        "syslog": event,
+    }
+    source_ip = event.get("source_ip")
+    if source_ip:
+        result["src_endpoint"] = {"ip": source_ip}
+    return result
