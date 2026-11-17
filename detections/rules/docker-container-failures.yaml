@@ -1,0 +1,12 @@
+id: docker-container-failures
+title: Docker container failures
+description: Detects Docker container termination and out-of-memory events.
+severity: medium
+enabled: true
+schedule_minutes: 5
+threshold: 1
+lookback_minutes: 10
+query:
+  source: docker-events
+  min_severity: 4
+  limit: 1000

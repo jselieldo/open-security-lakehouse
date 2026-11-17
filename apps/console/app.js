@@ -188,6 +188,7 @@ function showEventDetails(index) {
     ["Horário do evento", formatDate(item.event_time)],
     ["Horário da ingestão", formatDate(item.ingested_at)],
     ["Fonte", item.source],
+    ["Tipo de evento", item.event_type || "—"],
     ["IP de origem", item.src_ip || "—"],
     ["Aplicação", application],
     ["Hostname", hostname],
@@ -295,6 +296,16 @@ async function loadRules() {
   } catch (error) { handleError(error); }
 }
 
+async function loadSources() {
+  if (!requireToken()) return;
+  try {
+    const sources = await api("/api/v1/sources");
+    $("#sources-list").innerHTML = sources.length ? sources.map((item) =>
+      `<div class="list-item"><div><strong>${escapeHtml(item.display_name)}</strong><small>${escapeHtml(item.source_id)} · ${escapeHtml(item.kind)} · ${escapeHtml(item.hostname || "todos os hosts")} · ${item.configured ? "configurada" : "observada"}</small><small>Último evento: ${formatDate(item.last_received_at)} · ${item.accepted_events} aceitos · ${item.rejected_events} rejeitados</small></div><span class="badge">${escapeHtml(item.status)}</span></div>`
+    ).join("") : '<div class="empty-state">Nenhuma fonte registrada ou observada.</div>';
+  } catch (error) { handleError(error); }
+}
+
 async function runRule(button) {
   const original = button.textContent;
   button.disabled = true; button.textContent = "Executando…";
@@ -317,11 +328,12 @@ function handleError(error) {
 function switchView(name) {
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
   $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === name));
-  const labels = { overview: "Visão geral", investigate: "Investigar", alerts: "Alertas", rules: "Detecções" };
+  const labels = { overview: "Visão geral", investigate: "Investigar", alerts: "Alertas", rules: "Detecções", sources: "Fontes" };
   $("#page-title").textContent = labels[name];
   if (name === "overview") loadDashboard();
   if (name === "alerts") loadAlerts();
   if (name === "rules") loadRules();
+  if (name === "sources") loadSources();
 }
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));

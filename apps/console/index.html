@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <title>OSL Console</title>
-    <link rel="stylesheet" href="./styles.css?v=20261116-4" />
+    <link rel="stylesheet" href="./styles.css?v=20261116-5" />
   </head>
   <body>
     <div class="shell">
@@ -19,10 +19,11 @@
           <button class="nav-item" data-view="investigate"><span>⌕</span>Investigar</button>
           <button class="nav-item" data-view="alerts"><span>△</span>Alertas</button>
           <button class="nav-item" data-view="rules"><span>⌘</span>Detecções</button>
+          <button class="nav-item" data-view="sources"><span>▣</span>Fontes</button>
         </nav>
         <div class="sidebar-foot">
           <span class="status-dot"></span>
-          <span><strong id="connection-label">Conectando</strong><small>Milestone 8</small></span>
+          <span><strong id="connection-label">Conectando</strong><small>Milestone 11</small></span>
         </div>
       </aside>
 
@@ -74,6 +75,9 @@
             <form id="search-form" class="filter-grid">
               <label>Endereço IP<input name="src_ip" placeholder="198.51.100.42" /></label>
               <label>Fonte<input name="source" placeholder="synthetic-linux" /></label>
+              <label>Hostname<input name="hostname" placeholder="homelab" /></label>
+              <label>Aplicação<input name="application" placeholder="docker" /></label>
+              <label>Tipo de evento<input name="event_type" placeholder="container.die" /></label>
               <label>Severidade mínima<select name="min_severity"><option value="">Todas</option><option value="1">1 · Informativa</option><option value="2">2 · Notice</option><option value="3">3 · Warning</option><option value="4">4 · Erro</option><option value="5">5 · Crítica</option><option value="6">6 · Emergência</option></select></label>
               <label>Eventos por página<select name="limit"><option value="25">25</option><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option><option value="500">500</option></select></label>
               <label>Início<input name="start_time" type="datetime-local" /></label>
@@ -135,6 +139,13 @@
         <section id="rules-view" class="view">
           <div id="rules-grid" class="grid rules-grid"></div>
         </section>
+        <section id="sources-view" class="view">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">COBERTURA</p><h3>Catálogo de fontes</h3></div></div>
+            <p class="muted">Hostnames de syslog são declarados pelo emissor e não comprovam identidade.</p>
+            <div id="sources-list" class="list"></div>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -148,6 +159,6 @@
         <div class="dialog-actions"><button value="cancel" class="button secondary">Cancelar</button><button value="default" class="button primary" id="save-token">Conectar</button></div>
       </form>
     </dialog>
-    <script src="./app.js?v=20261116-4" defer></script>
+    <script src="./app.js?v=20261116-5" defer></script>
   </body>
 </html>

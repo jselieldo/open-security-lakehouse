@@ -1,6 +1,14 @@
 # Open Security Lakehouse
 
-Milestone 8 adds Prometheus metrics, operational alert rules, and a provisioned Grafana dashboard. It measures API traffic, ingestion throughput and outcomes, investigation/detection latency, dependency health, Vector flow, and object-lake size.
+Milestone 11 introduces a source-coverage catalog, Docker container lifecycle
+collection, investigation filters for hostname/application/event type, and a Docker
+failure rule. Onboarding is staged; vendor-specific firewall/router and application
+parsers require sanitized real samples. See
+[the source onboarding runbook](docs/runbooks/milestone11-sources.md).
+**Back up the running homelab before applying migration `0003_source_catalog`.**
+
+Milestone 10 added a dedicated detection worker, Alertmanager and alert triage.
+Prometheus and Grafana provide ingestion, dependency and lake metrics.
 
 This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
 
@@ -263,4 +271,5 @@ See [architecture overview](docs/architecture/overview.md), [ADR 0001](docs/adr/
 
 ## Next milestone
 
-The next operational increment should add more data sources, retention policies, and threat-intelligence enrichment.
+The next increment should address lake retention, compaction and query performance.
+Firewall/router and application parsers remain pending real sanitized samples.

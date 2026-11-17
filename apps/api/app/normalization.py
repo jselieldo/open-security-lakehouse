@@ -25,6 +25,9 @@ class SecurityEvent(BaseModel):
     severity_id: int = Field(ge=0, le=6)
     class_uid: int = Field(default=4002, ge=1)
     src_endpoint: SourceEndpoint | None = None
+    hostname: str | None = Field(default=None, max_length=255)
+    application: str | None = Field(default=None, max_length=200)
+    event_type: str | None = Field(default=None, max_length=100)
 
     @field_validator("event_time")
     @classmethod
@@ -65,6 +68,9 @@ def normalize_events(
                 "class_uid": event.class_uid,
                 "severity_id": event.severity_id,
                 "src_ip": src_ip,
+                "hostname": event.hostname,
+                "application": event.application,
+                "event_type": event.event_type,
                 "product_name": source,
                 "raw_event_json": _compact_json(raw_event),
             }

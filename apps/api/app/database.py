@@ -51,6 +51,22 @@ class IngestionBatch(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class SourceCatalog(Base):
+    __tablename__ = "source_catalog"
+
+    source_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False, default="unclassified")
+    hostname: Mapped[str | None] = mapped_column(String(255))
+    display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    expected_interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    configured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accepted_events: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rejected_events: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class DetectionRun(Base):
     __tablename__ = "detection_runs"
 

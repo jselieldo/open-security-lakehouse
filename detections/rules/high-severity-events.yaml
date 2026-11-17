@@ -11,4 +11,5 @@ query:
   exclude_sources:
     - synthetic-linux
     - test-syslog
+    - test-docker
   limit: 1000

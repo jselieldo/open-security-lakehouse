@@ -29,6 +29,7 @@ from .detection import (
 from .ingestion import (
     BatchConflictError,
     BatchTooLargeError,
+    docker_events_to_request,
     get_batch_status,
     ingest_batch,
     vector_events_to_request,
@@ -57,9 +58,12 @@ from .schemas import (
     IngestionResponse,
     InvestigationRequest,
     InvestigationResponse,
+    SourceRegistration,
+    SourceResponse,
     UserResponse,
 )
 from .security import Principal, get_current_principal, require_roles
+from .sources import list_sources, register_source
 from .storage import check_storage, ensure_bucket, lake_storage_stats
 from .triage import InvalidAlertTransitionError, add_comment, get_alert_detail, update_alert
 
@@ -72,7 +76,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.10.0",
+    version="0.11.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -142,7 +146,7 @@ def auth_config() -> AuthConfigResponse:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_roles("viewer"))], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "10", "version": "0.10.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "11", "version": "0.11.0"}
 
 
 @app.get("/api/v1/users/me", response_model=UserResponse, tags=["users"])
@@ -231,6 +235,21 @@ async def create_vector_batch(request: Request, db: Session = Depends(get_db)) -
         ) from exc
 
 
+@app.post(
+    "/api/v1/ingestion/docker",
+    response_model=IngestionResponse,
+    dependencies=[Depends(require_roles("ingestor"))],
+    tags=["ingestion"],
+)
+async def create_docker_batch(request: Request, db: Session = Depends(get_db)) -> IngestionResponse:
+    try:
+        return ingest_batch(docker_events_to_request(await request.body()), db)
+    except (ValueError, json.JSONDecodeError, OverflowError, BatchTooLargeError) as exc:
+        raise HTTPException(status_code=422, detail="invalid Docker event") from exc
+    except BatchConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @app.get(
     "/api/v1/ingestion/batches/{batch_id}",
     response_model=BatchStatusResponse,
@@ -242,6 +261,26 @@ def read_ingestion_batch(batch_id: str, db: Session = Depends(get_db)) -> BatchS
     if batch is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="batch not found")
     return batch
+
+
+@app.get("/api/v1/sources", response_model=list[SourceResponse], tags=["sources"])
+def read_sources(
+    _: Annotated[Principal, Depends(require_roles("viewer", "analyst"))],
+    db: Session = Depends(get_db),
+) -> list[SourceResponse]:
+    return list_sources(db)
+
+
+@app.post("/api/v1/sources", response_model=SourceResponse, tags=["sources"])
+def upsert_source(
+    payload: SourceRegistration,
+    _: Annotated[Principal, Depends(require_roles("admin"))],
+    db: Session = Depends(get_db),
+) -> SourceResponse:
+    try:
+        return register_source(payload, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @app.post(
@@ -379,7 +418,7 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     )
     runs = db.scalar(select(func.count()).select_from(DetectionRun)) or 0
     return DashboardSummary(
-        milestone="10",
+        milestone="11",
         platform_status="operational",
         ingestion_batches=batches,
         accepted_events=accepted,

@@ -15,6 +15,7 @@ from .database import IngestionBatch
 from .metrics import INGESTION_BATCHES, INGESTION_DURATION, INGESTION_EVENTS
 from .normalization import normalize_events
 from .schemas import BatchStatusResponse, IngestionRequest, IngestionResponse
+from .sources import record_source_batch
 from .storage import put_object
 
 
@@ -89,6 +90,7 @@ def ingest_batch(payload: IngestionRequest, db: Session) -> IngestionResponse:
         batch.rejected_count = len(rejected)
         batch.status = "completed" if normalized else "quarantined"
         batch.completed_at = datetime.now(UTC)
+        record_source_batch(payload.source, payload.events, len(normalized), len(rejected), db)
         db.commit()
         db.refresh(batch)
         INGESTION_BATCHES.labels(source=payload.source, status=batch.status).inc()
@@ -175,6 +177,46 @@ def vector_events_to_request(body: bytes) -> IngestionRequest:
     )
 
 
+DOCKER_ACTIONS = frozenset({"start", "stop", "die", "restart", "oom", "kill"})
+
+
+def docker_events_to_request(body: bytes) -> IngestionRequest:
+    events = _parse_vector_body(body)
+    if len(events) != 1:
+        raise ValueError("Docker endpoint expects exactly one event per request")
+    raw = events[0]
+    if raw.get("Type") != "container" or raw.get("Action") not in DOCKER_ACTIONS:
+        raise ValueError("unsupported Docker container action")
+    timestamp = raw.get("timeNano")
+    if not isinstance(timestamp, int) or isinstance(timestamp, bool) or timestamp <= 0:
+        raise ValueError("Docker event requires timeNano")
+    host = raw.get("osl_hostname")
+    if not isinstance(host, str) or not host or len(host) > 255:
+        raise ValueError("Docker event requires osl_hostname")
+    actor = raw.get("Actor")
+    if not isinstance(actor, dict) or not isinstance(actor.get("ID"), str):
+        raise ValueError("Docker event requires Actor.ID")
+    action = raw["Action"]
+    canonical = json.dumps(raw, separators=(",", ":"), sort_keys=True)
+    digest = sha256(canonical.encode()).hexdigest()
+    event = {
+        "event_id": f"docker-{digest[:32]}",
+        "event_time": datetime.fromtimestamp(timestamp / 1_000_000_000, UTC).isoformat(),
+        "severity_id": 4 if action in {"die", "oom"} else 2,
+        "class_uid": 4002,
+        "hostname": host,
+        "application": "docker",
+        "event_type": f"container.{action}",
+        "message": f"Docker container {action}",
+        "docker": raw,
+    }
+    return IngestionRequest(
+        batch_id=f"docker-{digest[:32]}",
+        source="test-docker" if raw.get("osl_test") is True else "docker-events",
+        events=[event],
+    )
+
+
 def _parse_vector_body(body: bytes) -> list[dict[str, Any]]:
     if not body.strip():
         raise ValueError("empty Vector payload")
@@ -210,6 +252,7 @@ def _vector_event(event: dict[str, Any], index: int) -> dict[str, Any]:
         "message": event.get("message", ""),
         "hostname": event.get("hostname"),
         "application": event.get("appname"),
+        "event_type": "syslog",
         "syslog": event,
     }
     source_ip = event.get("source_ip")

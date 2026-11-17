@@ -37,9 +37,31 @@ class BatchStatusResponse(IngestionResponse):
     completed_at: str | None = None
 
 
+class SourceRegistration(BaseModel):
+    source_id: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    source: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    kind: Literal["linux", "docker", "firewall", "router", "application", "other"]
+    hostname: str | None = Field(default=None, min_length=1, max_length=255)
+    display_name: str = Field(min_length=1, max_length=200)
+    expected_interval_minutes: int = Field(default=60, ge=1, le=10080)
+    enabled: bool = True
+
+
+class SourceResponse(SourceRegistration):
+    kind: str
+    configured: bool
+    status: Literal["active", "silent", "waiting", "disabled"]
+    last_received_at: datetime | None
+    accepted_events: int
+    rejected_events: int
+
+
 class InvestigationRequest(BaseModel):
     src_ip: str | None = None
     source: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    hostname: str | None = Field(default=None, min_length=1, max_length=255)
+    application: str | None = Field(default=None, min_length=1, max_length=200)
+    event_type: str | None = Field(default=None, min_length=1, max_length=100)
     exclude_sources: list[str] = Field(default_factory=list, max_length=20)
     message_contains: str | None = Field(default=None, min_length=1, max_length=500)
     start_time: datetime | None = None

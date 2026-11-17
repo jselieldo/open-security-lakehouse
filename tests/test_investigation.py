@@ -100,6 +100,31 @@ def test_result_offset_pages_through_matches(monkeypatch) -> None:
     assert result.events[0]["event_id"] == "evt-low"
 
 
+def test_new_filters_on_old_parquet_remain_compatible(monkeypatch) -> None:
+    body = parquet_bytes(rows())
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: ["old.parquet"])
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
+    assert investigate(InvestigationRequest(hostname="homelab")).total_count == 0
+    assert investigate(InvestigationRequest()).total_count == 2
+
+
+def test_host_application_and_type_filters(monkeypatch) -> None:
+    records = rows()[:1]
+    records[0].update(
+        hostname="homelab", application="docker", event_type="container.die"
+    )
+    body = parquet_bytes(records)
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: ["new.parquet"])
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
+    result = investigate(
+        InvestigationRequest(
+            hostname="homelab", application="docker", event_type="container.die"
+        )
+    )
+    assert result.total_count == 1
+    assert investigate(InvestigationRequest(hostname="other")).total_count == 0
+
+
 def test_investigation_filters_message_content(monkeypatch) -> None:
     data = rows()
     data[0]["raw_event_json"] = '{"message":"Failed password for root"}'

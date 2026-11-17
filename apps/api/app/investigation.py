@@ -19,6 +19,9 @@ EMPTY_COLUMNS = {
     "class_uid": pa.array([], type=pa.int64()),
     "severity_id": pa.array([], type=pa.int64()),
     "src_ip": pa.array([], type=pa.string()),
+    "hostname": pa.array([], type=pa.string()),
+    "application": pa.array([], type=pa.string()),
+    "event_type": pa.array([], type=pa.string()),
     "product_name": pa.array([], type=pa.string()),
     "raw_event_json": pa.array([], type=pa.string()),
 }
@@ -53,7 +56,15 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
 
 
 def _load_tables(keys: list[str]) -> pa.Table:
-    tables = [pq.read_table(io.BytesIO(get_object_bytes(key))) for key in keys]
+    tables = []
+    for key in keys:
+        table = pq.read_table(io.BytesIO(get_object_bytes(key)))
+        for name in EMPTY_COLUMNS:
+            if name not in table.column_names:
+                table = table.append_column(
+                    name, pa.nulls(table.num_rows, type=EMPTY_COLUMNS[name].type)
+                )
+        tables.append(table)
     if not tables:
         return pa.table(EMPTY_COLUMNS)
     if len(tables) == 1:
@@ -67,7 +78,8 @@ def _build_query(request: InvestigationRequest) -> tuple[str, list[object]]:
     sql = (  # noqa: S608 -- clauses are selected below; values remain parameters.
         f"""
         SELECT event_id, source, event_time, ingested_at, schema_name, schema_version,
-               class_uid, severity_id, src_ip, product_name, raw_event_json
+               class_uid, severity_id, src_ip, hostname, application, event_type,
+               product_name, raw_event_json
         FROM security_events
         {where}
         ORDER BY event_time DESC
@@ -87,6 +99,9 @@ def _build_filters(request: InvestigationRequest) -> tuple[str, list[object]]:
     parameters: list[object] = []
     for expression, value in (
         ("src_ip = ?", request.src_ip),
+        ("hostname = ?", request.hostname),
+        ("application = ?", request.application),
+        ("event_type = ?", request.event_type),
         ("source = ?", request.source),
         ("event_time >= ?", request.start_time),
         ("event_time <= ?", request.end_time),
