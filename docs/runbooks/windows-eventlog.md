@@ -20,12 +20,18 @@ required before using this collector across routed, shared or hostile networks.
 
 1. Download the pinned MSI from the official Vector repository:
    `https://install.datadoghq.com/vector/0.61.0/vector-0.61.0-x64.msi`.
-2. Verify that the installed binary reports `vector 0.61.0`.
-3. Copy `infrastructure/vector-windows/vector.yaml` to
+2. Verify its SHA-256 before installation. The expected value for the 0.61.0
+   x64 MSI is
+   `3ac167f226204e141d164c6218ae54a2df77dda1b3322bef4b565d4066c4cfad`.
+   The MSI does not carry an Authenticode signature, so a matching published
+   checksum is mandatory.
+3. Run the MSI as an administrator; the package rejects non-elevated installs.
+4. Verify that the installed binary reports `vector 0.61.0`.
+5. Copy `infrastructure/vector-windows/vector.yaml` to
    `C:\Program Files\Vector\config\vector.yaml` as an administrator.
-4. Confirm that `192.168.3.120` is still the homelab address and restrict
+6. Confirm that `192.168.3.120` is still the homelab address and restrict
    `SYSLOG_ALLOWED_CIDR` in the homelab `.env` to `192.168.3.0/24`.
-5. Validate and run the configuration:
+7. Validate and run the configuration:
 
    ```powershell
    & 'C:\Program Files\Vector\bin\vector.exe' validate `
