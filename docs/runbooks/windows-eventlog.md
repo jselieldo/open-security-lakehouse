@@ -27,24 +27,23 @@ required before using this collector across routed, shared or hostile networks.
    checksum is mandatory.
 3. Run the MSI as an administrator; the package rejects non-elevated installs.
 4. Verify that the installed binary reports `vector 0.61.0`.
-5. Copy `infrastructure/vector-windows/vector.yaml` to
-   `C:\Program Files\Vector\config\vector.yaml` as an administrator.
-6. Confirm that `192.168.3.120` is still the homelab address and restrict
+5. Confirm that `192.168.3.120` is still the homelab address and restrict
    `SYSLOG_ALLOWED_CIDR` in the homelab `.env` to `192.168.3.0/24`.
-7. Validate and run the configuration:
+6. From an elevated PowerShell in the repository, install the configuration and
+   startup task:
 
    ```powershell
-   & 'C:\Program Files\Vector\bin\vector.exe' validate `
-     'C:\Program Files\Vector\config\vector.yaml'
-   & 'C:\Program Files\Vector\bin\vector.exe' --config `
-     'C:\Program Files\Vector\config\vector.yaml'
+   Set-ExecutionPolicy -Scope Process Bypass
+   .\scripts\install-windows-collector.ps1
    ```
 
 Reading the Security channel requires an account with permission to read it. Do
-not grant local administrator access solely for Vector; prefer the built-in Event
-Log Readers group where it is sufficient. The initial start reads at most the
-previous hour and then resumes from durable per-channel checkpoints. Event-data
-fields are limited to 4096 bytes and raw XML is disabled.
+not grant local administrator access solely for Vector. The installer runs the
+scheduled task as the limited built-in `Local Service` identity and adds only
+that identity to the built-in Event Log Readers group. It restricts the data
+directory ACL to Local Service, Administrators and SYSTEM. The initial start
+reads at most the previous hour and then resumes from durable per-channel
+checkpoints. Event-data fields are limited to 4096 bytes and raw XML is disabled.
 
 ## Register and verify the source
 

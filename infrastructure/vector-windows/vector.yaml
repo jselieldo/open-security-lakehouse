@@ -14,9 +14,6 @@ sources:
     events_per_second: 100
     include_xml: false
     max_event_data_length: 4096
-    acknowledgements:
-      enabled: true
-
 transforms:
   prepare_for_osl:
     type: remap
@@ -27,7 +24,7 @@ transforms:
       .message = encode_json(original)
       .appname = "windows-eventlog"
       .hostname = to_string(original.computer) ?? get_hostname!()
-      .timestamp = original.timestamp ?? now()
+      .timestamp = original.timestamp
 
 sinks:
   osl_syslog:
