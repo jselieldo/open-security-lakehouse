@@ -47,13 +47,14 @@ def record_source_batch(
         fallback_id = (
             source_name
             if not candidates
-            else f"unattributed-{sha256(source_name.encode()).hexdigest()[:24]}"
+            else f"{source_name}-{sha256(f'{source_name}:{host}'.encode()).hexdigest()[:16]}"
         )
         matching = SourceCatalog(
             source_id=fallback_id,
             source=source_name,
-            kind="unclassified",
-            display_name=source_name,
+            kind="docker" if source_name == "docker-events" else "unclassified",
+            hostname=host,
+            display_name="Docker events" if source_name == "docker-events" else source_name,
             configured=False,
         )
         db.add(matching)

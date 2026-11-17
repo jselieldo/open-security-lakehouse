@@ -10,6 +10,7 @@ import time
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 def main() -> None:
@@ -17,6 +18,8 @@ def main() -> None:
     endpoint = os.environ.get(
         "OSL_DOCKER_INGEST_URL", "http://127.0.0.1:8000/api/v1/ingestion/docker"
     )
+    if urlparse(endpoint).scheme not in {"http", "https"}:
+        raise ValueError("OSL_DOCKER_INGEST_URL must use HTTP or HTTPS")
     host = os.environ.get("OSL_DOCKER_HOSTNAME", socket.gethostname())
     checkpoint = Path(
         os.environ.get(
@@ -35,21 +38,24 @@ def main() -> None:
         "docker", "events", "--filter", "type=container",
         "--since", since.isoformat(), "--format", "{{json .}}",
     ]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, text=True)
+    process = subprocess.Popen(  # noqa: S603 -- fixed Docker CLI with validated arguments.
+        command, stdout=subprocess.PIPE, text=True
+    )
     try:
-        assert process.stdout is not None
+        if process.stdout is None:
+            raise RuntimeError("docker events stdout is unavailable")
         for line in process.stdout:
             event = json.loads(line)
             if event.get("Action") not in {"start", "stop", "die", "restart", "oom", "kill"}:
                 continue
             event["osl_hostname"] = host
             body = json.dumps(event).encode()
-            request = urllib.request.Request(
+            request = urllib.request.Request(  # noqa: S310 -- scheme is restricted above.
                 endpoint, data=body, method="POST",
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             )
             # On failure, exit without advancing the checkpoint; a supervisor can restart us.
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
                 result = json.load(response)
             if result["status"] != "completed":
                 raise RuntimeError("Docker event was not accepted")

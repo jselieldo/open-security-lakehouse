@@ -37,3 +37,20 @@ Use **Fontes** in the console or `GET /api/v1/sources` to see configured versus
 observed entries and `waiting`, `active`, `silent`, or `disabled` states.
 `last_received_at` is updated only after a completed batch. Existing pre-migration
 batches are not backfilled into the catalog.
+
+# Operational meaning of source status
+
+For event-driven sources, `silent` means that no matching telemetry arrived within the
+configured interval. It does not alone prove that the collector process failed. Check the
+systemd service health together with the catalog timestamp.
+
+Install the homelab Docker collector as a restricted host service:
+
+```bash
+./scripts/install-docker-collector.sh
+systemctl status osl-docker-collector.service
+```
+
+The API and Vector containers never receive the Docker socket. Only the host-side service
+runs under the homelab user, with membership in the existing `docker` group and a
+root-owned credential file.

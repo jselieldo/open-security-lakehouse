@@ -194,7 +194,7 @@ curl --fail -H "Authorization: Bearer $TOKEN" \
   http://127.0.0.1:8000/api/v1/alerts
 ```
 
-Enabled rules run on their configured interval inside the single API process. Matching event identifiers form a deterministic alert fingerprint, preventing repeated runs from generating duplicate alerts. Full evidence is written under `artifacts/detection-evidence/` and the alert metadata is stored in PostgreSQL.
+Enabled rules run on their configured interval in the dedicated detection worker. Matching event identifiers form a deterministic alert fingerprint, preventing repeated runs from generating duplicate alerts. Full evidence is written under `artifacts/detection-evidence/` and the alert metadata is stored in PostgreSQL.
 
 The bundled high-severity rule examines a moving 20-minute window and excludes `synthetic-linux` and `test-syslog`, so validation traffic does not create operational alerts. Additional rules detect repeated SSH authentication failures and privileged `sudo` commands.
 

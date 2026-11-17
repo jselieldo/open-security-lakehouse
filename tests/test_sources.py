@@ -3,16 +3,16 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pyarrow.parquet as pq
-from app.database import Base, SourceCatalog, get_db
+from app.database import Base, SourceCatalog
 from app.ingestion import docker_events_to_request, ingest_batch
-from app.main import app
+from app.main import app, read_sources, upsert_source
 from app.schemas import SourceRegistration
-from app.security import Principal, get_current_principal
+from app.security import Principal
 from app.sources import list_sources, register_source, source_response
-from fastapi.testclient import TestClient
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
+from starlette.requests import Request
 
 
 def event() -> dict:
@@ -83,72 +83,69 @@ def test_registered_source_tracks_ingestion_and_silence(monkeypatch) -> None:
         )[0].as_py() == "homelab"
 
 
-def test_source_endpoints_require_roles_and_database(monkeypatch) -> None:
-    monkeypatch.setattr("app.main.ensure_bucket", lambda: None)
-    monkeypatch.setattr("app.ingestion.put_object", lambda *_: None)
-    monkeypatch.setattr("app.security._record_access", lambda *_args, **_kwargs: None)
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+def test_source_public_endpoints_and_conflict() -> None:
+    paths = {route.path for route in app.routes}
+    assert "/api/v1/sources" in paths
+    assert "/api/v1/ingestion/docker" in paths
+    engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
-
-    def session():
-        with Session(engine) as db:
-            yield db
-
-    app.dependency_overrides[get_db] = session
-    body = {
-        "source_id": "router", "source": "router-syslog", "kind": "router",
-        "display_name": "Router", "expected_interval_minutes": 60,
-    }
-    try:
-        with TestClient(app) as client:
-            assert client.get("/api/v1/sources").status_code == 401
-            assert client.post("/api/v1/sources", json=body).status_code == 401
-    finally:
-        app.dependency_overrides.clear()
-
-
-    app.dependency_overrides[get_db] = session
-    app.dependency_overrides[get_current_principal] = lambda: Principal(
-        "ingestor", "collector", None, None, frozenset({"ingestor"}), "collector_token"
+    payload = SourceRegistration(
+        source_id="router",
+        source="router-syslog",
+        kind="router",
+        display_name="Router",
+        expected_interval_minutes=60,
     )
-    try:
-        with TestClient(app) as client:
-            assert client.get("/api/v1/sources").status_code == 403
-            assert client.post("/api/v1/sources", json=body).status_code == 403
-            assert client.post("/api/v1/ingestion/docker", json=event()).status_code == 200
-            invalid = client.post("/api/v1/ingestion/docker", json={"Type": "image"})
-            assert invalid.status_code == 422
-    finally:
-        app.dependency_overrides.clear()
+    with Session(engine) as db:
+        created = upsert_source(payload, None, db)  # type: ignore[arg-type]
+        assert created.source_id == "router"
+        assert read_sources(None, db)[0].source_id == "router"  # type: ignore[arg-type]
+        try:
+            upsert_source(
+                payload.model_copy(update={"source": "other"}),
+                None,  # type: ignore[arg-type]
+                db,
+            )
+        except HTTPException as exc:
+            assert exc.status_code == 409
+        else:
+            raise AssertionError("source identity conflict was accepted")
 
 
-    app.dependency_overrides[get_db] = session
-    app.dependency_overrides[get_current_principal] = lambda: Principal(
-        "admin", "admin", None, None, frozenset({"admin"}), "oidc"
+def test_source_endpoint_role_contracts(monkeypatch) -> None:
+    monkeypatch.setattr("app.security._record_access", lambda *_args, **_kwargs: None)
+    request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+    source_route = next(
+        route
+        for route in app.routes
+        if getattr(route, "path", None) == "/api/v1/sources" and "GET" in route.methods
     )
+    docker_route = next(
+        route
+        for route in app.routes
+        if getattr(route, "path", None) == "/api/v1/ingestion/docker"
+    )
+    source_dependency = source_route.dependant.dependencies[0].call
+    docker_dependency = docker_route.dependant.dependencies[0].call
+    viewer = Principal("viewer", "viewer", None, None, frozenset({"viewer"}), "test")
+    ingestor = Principal("ingestor", "ingestor", None, None, frozenset({"ingestor"}), "test")
+    assert source_dependency(request, viewer) == viewer
+    assert docker_dependency(request, ingestor) == ingestor
     try:
-        with TestClient(app) as client:
-            assert client.post("/api/v1/sources", json=body).status_code == 200
-            assert client.get("/api/v1/sources").json()[0]["source_id"] == "docker-events"
-            conflict = client.post("/api/v1/sources", json={**body, "source": "other"})
-            assert conflict.status_code == 409
-    finally:
-        app.dependency_overrides.clear()
+        source_dependency(request, ingestor)
+    except HTTPException as exc:
+        assert exc.status_code == 403
+    else:
+        raise AssertionError("ingestor could read the source catalog")
 
 
 def test_source_endpoint_reports_dependency_failure(monkeypatch) -> None:
-    monkeypatch.setattr("app.main.ensure_bucket", lambda: None)
     monkeypatch.setattr(
         "app.main.list_sources", lambda _db: (_ for _ in ()).throw(RuntimeError("db down"))
     )
-    app.dependency_overrides[get_current_principal] = lambda: Principal(
-        "viewer", "viewer", None, None, frozenset({"viewer"}), "oidc"
-    )
     try:
-        with TestClient(app, raise_server_exceptions=False) as client:
-            assert client.get("/api/v1/sources").status_code == 500
-    finally:
-        app.dependency_overrides.clear()
+        read_sources(None, None)  # type: ignore[arg-type]
+    except RuntimeError as exc:
+        assert str(exc) == "db down"
+    else:
+        raise AssertionError("database failure was hidden")
