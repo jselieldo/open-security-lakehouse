@@ -77,6 +77,21 @@ make test
 
 The unit suite does not need Docker. Smoke tests require the full Compose stack and obtain an OIDC access token from Keycloak.
 
+## Collect Windows Event Log
+
+The Windows workstation collector uses the same pinned Vector `0.61.0` release
+(MPL-2.0) as the homelab. It collects System, Application, Security and Windows
+PowerShell channels with local checkpoints, rate limits and a durable buffer.
+Windows records are stored under source `windows-eventlog`; the original record
+is preserved while hostname, provider, channel, event ID and severity become
+structured investigation fields.
+
+Follow [the Windows collector runbook](docs/runbooks/windows-eventlog.md). The
+initial transport uses CIDR-restricted TCP syslog on the trusted homelab LAN; it
+is not encrypted and must not be exposed to the Internet or used across an
+untrusted network. The API remains loopback-only and no bearer token is placed on
+the Windows host.
+
 ## Collect Linux/syslog events
 
 Vector 0.61.0 listens for RFC 3164/5424 syslog over TCP on port 5514. Restrict `SYSLOG_ALLOWED_CIDR` in `.env` to the homelab subnet before starting. UDP is intentionally disabled because it cannot provide delivery feedback.
@@ -256,6 +271,7 @@ apps/api/                    FastAPI control plane
 infrastructure/keycloak/     OIDC realm and identity bootstrap
 infrastructure/seaweedfs/    S3 gateway configuration
 infrastructure/vector/       Linux/syslog collector configuration
+infrastructure/vector-windows/ Windows Event Log collector configuration
 infrastructure/prometheus/   scrape configuration and alert rules
 infrastructure/alertmanager/ platform-alert grouping and routing
 infrastructure/grafana/      provisioned datasource and dashboard

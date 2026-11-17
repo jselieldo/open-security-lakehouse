@@ -118,6 +118,17 @@ def test_source_public_endpoints_and_conflict() -> None:
             raise AssertionError("source identity conflict was accepted")
 
 
+def test_windows_source_kind_is_supported() -> None:
+    source = SourceRegistration(
+        source_id="windows-workstation",
+        source="windows-eventlog",
+        kind="windows",
+        hostname="DESKTOP-OSL",
+        display_name="Windows workstation",
+    )
+    assert source.kind == "windows"
+
+
 def test_source_endpoint_role_contracts(monkeypatch) -> None:
     monkeypatch.setattr("app.security._record_access", lambda *_args, **_kwargs: None)
     request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})

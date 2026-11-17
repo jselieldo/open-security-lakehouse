@@ -20,6 +20,8 @@ inputs = ["linux_syslog"]
 source = '''
 if .appname == "osl-smoke" {
   .osl_source = "test-syslog"
+} else if .appname == "windows-eventlog" {
+  .osl_source = "windows-eventlog"
 } else {
   .osl_source = "linux-syslog"
 }

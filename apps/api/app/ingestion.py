@@ -238,6 +238,8 @@ def _parse_vector_body(body: bytes) -> list[dict[str, Any]]:
 
 
 def _vector_event(event: dict[str, Any], index: int) -> dict[str, Any]:
+    if event.get("osl_source") == "windows-eventlog":
+        return _windows_syslog_event(event, index)
     timestamp = event.get("timestamp") or datetime.now(UTC).isoformat()
     severity = str(event.get("severity", "info")).lower()
     severity_id = {
@@ -266,3 +268,55 @@ def _vector_event(event: dict[str, Any], index: int) -> dict[str, Any]:
     if source_ip:
         result["src_endpoint"] = {"ip": source_ip}
     return result
+
+
+def _windows_syslog_event(event: dict[str, Any], index: int) -> dict[str, Any]:
+    raw_windows: dict[str, Any] = {}
+    message = event.get("message", "")
+    if isinstance(message, str):
+        try:
+            decoded = json.loads(message)
+            if isinstance(decoded, dict):
+                raw_windows = decoded
+        except json.JSONDecodeError:
+            pass
+
+    timestamp = (
+        raw_windows.get("timestamp")
+        or event.get("timestamp")
+        or datetime.now(UTC).isoformat()
+    )
+    channel = str(raw_windows.get("channel") or "Unknown")
+    provider = str(raw_windows.get("provider_name") or "Windows Event Log")
+    windows_event_id = raw_windows.get("event_id")
+    record_id = raw_windows.get("record_id")
+    hostname = raw_windows.get("computer") or event.get("hostname")
+    level = str(raw_windows.get("level") or event.get("severity") or "Information").lower()
+    severity_id = {
+        "critical": 5,
+        "error": 4,
+        "warning": 3,
+        "information": 1,
+        "verbose": 0,
+    }.get(level, 1)
+    canonical = json.dumps(
+        raw_windows or event, separators=(",", ":"), sort_keys=True, default=str
+    )
+    identity = f"{hostname}:{channel}:{record_id}:{windows_event_id}:{index}:{canonical}"
+    rendered_message = raw_windows.get("message")
+    if not isinstance(rendered_message, str) or not rendered_message:
+        rendered_message = f"Windows event {windows_event_id or 'unknown'} from {provider}"
+    return {
+        "event_id": f"windows-{sha256(identity.encode()).hexdigest()[:32]}",
+        "event_time": timestamp,
+        "severity_id": severity_id,
+        "class_uid": 4002,
+        "hostname": hostname,
+        "application": provider,
+        "event_type": (
+            f"windows.{channel.lower().replace(' ', '_')}."
+            f"{windows_event_id or 'unknown'}"
+        ),
+        "message": rendered_message,
+        "windows": raw_windows or {"syslog": event},
+    }

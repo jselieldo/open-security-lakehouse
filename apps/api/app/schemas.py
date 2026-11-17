@@ -40,7 +40,9 @@ class BatchStatusResponse(IngestionResponse):
 class SourceRegistration(BaseModel):
     source_id: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9._-]*$")
     source: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9._-]*$")
-    kind: Literal["linux", "docker", "firewall", "router", "application", "other"]
+    kind: Literal[
+        "linux", "windows", "docker", "firewall", "router", "application", "other"
+    ]
     hostname: str | None = Field(default=None, min_length=1, max_length=255)
     display_name: str = Field(min_length=1, max_length=200)
     expected_interval_minutes: int = Field(default=60, ge=1, le=10080)

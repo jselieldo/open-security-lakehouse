@@ -176,6 +176,47 @@ def test_vector_test_events_use_isolated_source() -> None:
     assert request.source == "test-syslog"
 
 
+def test_vector_windows_event_is_normalized_and_idempotent() -> None:
+    windows = {
+        "channel": "Security",
+        "computer": "DESKTOP-OSL",
+        "event_id": 4625,
+        "record_id": 1234,
+        "level": "Warning",
+        "message": "An account failed to log on.",
+        "provider_name": "Microsoft-Windows-Security-Auditing",
+        "timestamp": "2026-11-17T12:00:00Z",
+    }
+    body = json.dumps(
+        {
+            "appname": "windows-eventlog",
+            "hostname": "DESKTOP-OSL",
+            "message": json.dumps(windows),
+            "osl_source": "windows-eventlog",
+            "timestamp": "2026-11-17T12:00:00Z",
+        }
+    ).encode()
+    first = vector_events_to_request(body)
+    second = vector_events_to_request(body)
+    assert first == second
+    assert first.source == "windows-eventlog"
+    assert first.events[0]["event_id"].startswith("windows-")
+    assert first.events[0]["severity_id"] == 3
+    assert first.events[0]["hostname"] == "DESKTOP-OSL"
+    assert first.events[0]["application"] == "Microsoft-Windows-Security-Auditing"
+    assert first.events[0]["event_type"] == "windows.security.4625"
+    assert first.events[0]["windows"] == windows
+
+
+def test_vector_windows_event_without_json_is_preserved_safely() -> None:
+    request = vector_events_to_request(
+        b'{"hostname":"DESKTOP-OSL","message":"truncated",'
+        b'"osl_source":"windows-eventlog","timestamp":"2026-11-17T12:00:00Z"}'
+    )
+    assert request.events[0]["event_type"] == "windows.unknown.unknown"
+    assert request.events[0]["windows"]["syslog"]["message"] == "truncated"
+
+
 def test_vector_rejects_mixed_source_batch() -> None:
     with pytest.raises(ValueError, match="single OSL source"):
         vector_events_to_request(

@@ -1,0 +1,50 @@
+data_dir: C:\ProgramData\OpenSecurityLakehouse\vector-data
+
+sources:
+  windows_events:
+    type: windows_event_log
+    channels:
+      - System
+      - Application
+      - Security
+      - Windows PowerShell
+    read_existing_events: true
+    max_event_age_secs: 3600
+    checkpoint_interval_secs: 5
+    events_per_second: 100
+    include_xml: false
+    max_event_data_length: 4096
+    acknowledgements:
+      enabled: true
+
+transforms:
+  prepare_for_osl:
+    type: remap
+    inputs:
+      - windows_events
+    source: |-
+      original = .
+      .message = encode_json(original)
+      .appname = "windows-eventlog"
+      .hostname = to_string(original.computer) ?? get_hostname!()
+      .timestamp = original.timestamp ?? now()
+
+sinks:
+  osl_syslog:
+    type: socket
+    inputs:
+      - prepare_for_osl
+    address: 192.168.3.120:5514
+    mode: tcp
+    acknowledgements:
+      enabled: true
+    encoding:
+      codec: syslog
+      syslog:
+        app_name: appname
+    framing:
+      method: newline_delimited
+    buffer:
+      type: disk
+      max_size: 268435488
+      when_full: block
