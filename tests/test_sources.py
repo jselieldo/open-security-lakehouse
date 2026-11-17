@@ -38,6 +38,9 @@ def test_docker_adapter_is_deterministic_and_preserves_raw() -> None:
     labeled = event()
     labeled["Actor"]["Attributes"]["osl.test"] = "true"
     assert docker_events_to_request(json.dumps(labeled).encode()).source == "test-docker"
+    clean_exit = event()
+    clean_exit["Actor"]["Attributes"]["exitCode"] = "0"
+    assert docker_events_to_request(json.dumps(clean_exit).encode()).events[0]["severity_id"] == 2
 
 
 def test_docker_adapter_rejects_wrong_type_and_missing_timestamp() -> None:

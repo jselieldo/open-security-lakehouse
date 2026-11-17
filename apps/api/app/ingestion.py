@@ -196,18 +196,20 @@ def docker_events_to_request(body: bytes) -> IngestionRequest:
     actor = raw.get("Actor")
     if not isinstance(actor, dict) or not isinstance(actor.get("ID"), str):
         raise ValueError("Docker event requires Actor.ID")
+    action = raw["Action"]
     attributes = actor.get("Attributes")
     labeled_test = isinstance(attributes, dict) and str(attributes.get("osl.test")).lower() in {
         "1",
         "true",
     }
-    action = raw["Action"]
+    exit_code = attributes.get("exitCode") if isinstance(attributes, dict) else None
+    failed = action == "oom" or (action == "die" and str(exit_code) != "0")
     canonical = json.dumps(raw, separators=(",", ":"), sort_keys=True)
     digest = sha256(canonical.encode()).hexdigest()
     event = {
         "event_id": f"docker-{digest[:32]}",
         "event_time": datetime.fromtimestamp(timestamp / 1_000_000_000, UTC).isoformat(),
-        "severity_id": 4 if action in {"die", "oom"} else 2,
+        "severity_id": 4 if failed else 2,
         "class_uid": 4002,
         "hostname": host,
         "application": "docker",
