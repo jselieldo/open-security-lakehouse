@@ -196,6 +196,11 @@ def docker_events_to_request(body: bytes) -> IngestionRequest:
     actor = raw.get("Actor")
     if not isinstance(actor, dict) or not isinstance(actor.get("ID"), str):
         raise ValueError("Docker event requires Actor.ID")
+    attributes = actor.get("Attributes")
+    labeled_test = isinstance(attributes, dict) and str(attributes.get("osl.test")).lower() in {
+        "1",
+        "true",
+    }
     action = raw["Action"]
     canonical = json.dumps(raw, separators=(",", ":"), sort_keys=True)
     digest = sha256(canonical.encode()).hexdigest()
@@ -212,7 +217,7 @@ def docker_events_to_request(body: bytes) -> IngestionRequest:
     }
     return IngestionRequest(
         batch_id=f"docker-{digest[:32]}",
-        source="test-docker" if raw.get("osl_test") is True else "docker-events",
+        source="test-docker" if raw.get("osl_test") is True or labeled_test else "docker-events",
         events=[event],
     )
 

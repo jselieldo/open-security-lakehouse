@@ -35,6 +35,9 @@ def test_docker_adapter_is_deterministic_and_preserves_raw() -> None:
     assert first.events[0]["severity_id"] == 4
     fixture = {**event(), "osl_test": True}
     assert docker_events_to_request(json.dumps(fixture).encode()).source == "test-docker"
+    labeled = event()
+    labeled["Actor"]["Attributes"]["osl.test"] = "true"
+    assert docker_events_to_request(json.dumps(labeled).encode()).source == "test-docker"
 
 
 def test_docker_adapter_rejects_wrong_type_and_missing_timestamp() -> None:
