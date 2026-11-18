@@ -207,6 +207,13 @@ def test_vector_windows_event_is_normalized_and_idempotent() -> None:
     assert first.events[0]["event_type"] == "windows.security.4625"
     assert first.events[0]["windows"] == windows
 
+    preceding = json.loads(body)
+    preceding["message"] = json.dumps({**windows, "record_id": 1233})
+    batched = vector_events_to_request(
+        (json.dumps(preceding) + "\n" + body.decode()).encode()
+    )
+    assert batched.events[1]["event_id"] == first.events[0]["event_id"]
+
 
 def test_vector_windows_event_without_json_is_preserved_safely() -> None:
     request = vector_events_to_request(
