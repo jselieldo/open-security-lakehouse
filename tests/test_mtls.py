@@ -39,6 +39,7 @@ def test_certificate_monitor_validates_inventory_and_emits_security_event() -> N
     assert "unexpected certificates" in monitor
     assert '"trust/ca-bundle.crt"' in monitor
     assert '"authpriv.err"' in monitor
+    assert 'choices=("osl-certificates", "osl-smoke")' in monitor
     assert "osl-certificate-monitor.timer" in installer
     assert "OnCalendar=daily" in installer
     assert "--warning-days 30 --emit-syslog" in installer
@@ -55,6 +56,17 @@ def test_ca_rotation_prepares_dual_trust_without_touching_active_material() -> N
     assert '"$candidate/server/server.crt"' in script
     assert "No active certificate or service was changed." in script
     assert "CERTIFICATE-SHA256SUMS" in script
+
+
+def test_certificate_alert_smoke_is_isolated_and_closes_its_alert() -> None:
+    script = (ROOT / "scripts" / "certificate-alert-smoke-test.sh").read_text()
+    rule = (ROOT / "detections" / "rules" / "test-certificate-monitor-alert.yaml").read_text()
+    assert "--syslog-tag osl-smoke" in script
+    assert "/tmp/osl-mtls-monitor-e2e-missing" in script
+    assert "test-certificate-monitor-alert/run" in script
+    assert '"status":"false_positive"' in script
+    assert "source: test-syslog" in rule
+    assert "message_contains:" in rule
 
 
 def test_linux_forwarder_requires_named_mtls_peer_and_durable_queue() -> None:

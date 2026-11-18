@@ -83,6 +83,9 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path("data/mtls"))
     parser.add_argument("--warning-days", type=int, default=30)
     parser.add_argument("--emit-syslog", action="store_true")
+    parser.add_argument(
+        "--syslog-tag", choices=("osl-certificates", "osl-smoke"), default="osl-certificates"
+    )
     arguments = parser.parse_args()
     if not 1 <= arguments.warning_days <= 365:
         parser.error("--warning-days must be between 1 and 365")
@@ -129,7 +132,7 @@ def main() -> int:
                 "-p",
                 "authpriv.err",
                 "-t",
-                "osl-certificates",
+                arguments.syslog_tag,
                 "OSL mTLS certificate check failed: " + "; ".join(errors),
             ],
             check=False,

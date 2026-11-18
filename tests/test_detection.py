@@ -88,6 +88,11 @@ def test_repository_detection_rules_are_valid_and_unique() -> None:
     assert len(docker_apps) == 3
     assert all(item.query.source == "docker-logs" for item in docker_apps)
     assert all("test-docker-logs" not in item.query.exclude_sources for item in docker_apps)
+    certificate_test = next(item for item in rules if item.id == "test-certificate-monitor-alert")
+    assert certificate_test.query.source == "test-syslog"
+    assert certificate_test.title.startswith("[TEST]")
+    production_high = next(item for item in rules if item.id == "high-severity-events")
+    assert "test-syslog" in production_high.query.exclude_sources
 
 
 def test_detection_creates_alert_and_evidence(monkeypatch) -> None:

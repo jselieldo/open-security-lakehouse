@@ -97,6 +97,20 @@ revoked CA and must be treated as an explicit security exception.
 Never promote the candidate directory with a recursive copy. Copy the named certificate and key
 files for the current phase so the dual-trust boundary remains visible and reviewable.
 
+## Isolated alert-path validation
+
+Run the end-to-end certificate-monitor alert test with:
+
+```bash
+./scripts/certificate-alert-smoke-test.sh
+```
+
+The script points the monitor at a nonexistent `/tmp` directory and emits the expected failure
+with the reserved `osl-smoke` tag. Vector classifies it as `test-syslog`, which production rules
+exclude. The dedicated `[TEST]` rule is then run explicitly; the script verifies searchable
+telemetry and immutable evidence, adds a triage comment, and closes the resulting test alert as
+`false_positive`. No active certificate or production alert is modified.
+
 Linux and Windows were both observed after collector and server restarts with certificate
 metadata retained in their raw events. The transitional TCP 5514 listener has therefore been
 removed. Confirm TCP 6514 after future upgrades and treat any reintroduction of plaintext

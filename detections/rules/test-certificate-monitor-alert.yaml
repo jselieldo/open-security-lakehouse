@@ -1,0 +1,13 @@
+id: test-certificate-monitor-alert
+title: "[TEST] Certificate monitor alert path"
+description: Validates the isolated certificate-monitor event, detection, evidence and triage path.
+severity: high
+enabled: true
+schedule_minutes: 1440
+threshold: 1
+lookback_minutes: 20
+query:
+  source: test-syslog
+  message_contains: "OSL mTLS certificate check failed:"
+  min_severity: 4
+  limit: 100
