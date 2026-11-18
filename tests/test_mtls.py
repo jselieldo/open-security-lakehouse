@@ -63,6 +63,7 @@ def test_certificate_alert_smoke_is_isolated_and_closes_its_alert() -> None:
     rule = (ROOT / "detections" / "rules" / "test-certificate-monitor-alert.yaml").read_text()
     assert "--syslog-tag osl-smoke" in script
     assert "/tmp/osl-mtls-monitor-e2e-missing" in script
+    assert "seq 1 150" in script
     assert "test-certificate-monitor-alert/run" in script
     assert '"status":"false_positive"' in script
     assert "source: test-syslog" in rule

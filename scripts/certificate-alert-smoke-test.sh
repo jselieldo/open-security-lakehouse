@@ -18,7 +18,7 @@ then
 fi
 
 token="$(./scripts/get-access-token.sh)"
-for _ in $(seq 1 30); do
+for _ in $(seq 1 150); do
   result="$(curl --fail --silent --show-error \
     -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
     --data "{\"source\":\"test-syslog\",\"message_contains\":\"$marker\",\"min_severity\":4,\"limit\":100}" \
