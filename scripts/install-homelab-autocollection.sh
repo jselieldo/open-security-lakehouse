@@ -21,10 +21,13 @@ temporary_file="$(mktemp)"
 trap 'rm -f "$temporary_file"' EXIT
 sed "s/__OSL_SYSLOG_HOST__/$collector_host/g" "$source_file" > "$temporary_file"
 sudo install -o root -g root -m 0644 "$temporary_file" "$target_file"
-sudo install -d -o root -g root -m 0750 "$certificate_target"
-sudo install -o root -g root -m 0644 "$certificate_source/ca.crt" "$certificate_target/ca.crt"
-sudo install -o root -g root -m 0644 "$certificate_source/client.crt" "$certificate_target/client.crt"
-sudo install -o root -g root -m 0600 "$certificate_source/client.key" "$certificate_target/client.key"
+# rsyslog drops privileges to the dedicated syslog account before TLS initialization.
+# Keep /etc/osl non-listable, then grant only that account access to this subdirectory.
+sudo chmod 0711 /etc/osl
+sudo install -d -o root -g syslog -m 0750 "$certificate_target"
+sudo install -o root -g syslog -m 0640 "$certificate_source/ca.crt" "$certificate_target/ca.crt"
+sudo install -o root -g syslog -m 0640 "$certificate_source/client.crt" "$certificate_target/client.crt"
+sudo install -o root -g syslog -m 0640 "$certificate_source/client.key" "$certificate_target/client.key"
 sudo rsyslogd -N1
 sudo systemctl restart rsyslog
 sudo systemctl is-active --quiet rsyslog
