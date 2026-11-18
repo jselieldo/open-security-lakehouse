@@ -33,14 +33,22 @@ def plan_compaction(
     before: date,
     minimum_objects: int = 10,
     keys: list[str] | None = None,
+    manifests: dict[str, dict[str, object]] | None = None,
 ) -> list[PartitionPlan]:
-    keys = keys if keys is not None else list_object_keys("normalized/")
+    supplied_keys = keys is not None
+    keys = keys if supplied_keys else list_object_keys("normalized/")
     batches: dict[str, list[str]] = {}
-    completed = {
-        key.rsplit("/", 1)[0]
-        for key in keys
-        if key.endswith(f"/{MANIFEST_NAME}")
-    }
+    manifest_keys = [key for key in keys if key.endswith(f"/{MANIFEST_NAME}")]
+    if manifests is None:
+        manifests = {}
+        if not supplied_keys:
+            for key in manifest_keys:
+                try:
+                    document = json.loads(get_object_bytes(key))
+                except (json.JSONDecodeError, OSError, ValueError):
+                    continue
+                if isinstance(document, dict):
+                    manifests[key.rsplit("/", 1)[0]] = document
     for key in keys:
         if "/batch=" not in key or not key.endswith(".parquet"):
             continue
@@ -50,7 +58,19 @@ def plan_compaction(
     plans: list[PartitionPlan] = []
     for partition, objects in sorted(batches.items()):
         match = PARTITION_PATTERN.fullmatch(partition)
-        if not match or partition in completed or len(objects) < minimum_objects:
+        if not match:
+            continue
+        manifest = manifests.get(partition)
+        if manifest:
+            covered = {
+                str(key)
+                for key in manifest.get("source_objects", [])
+                if isinstance(key, str)
+            }
+            eligible_count = len(set(objects) - covered)
+        else:
+            eligible_count = len(objects)
+        if eligible_count < minimum_objects:
             continue
         partition_date = date(
             int(match["year"]), int(match["month"]), int(match["day"])

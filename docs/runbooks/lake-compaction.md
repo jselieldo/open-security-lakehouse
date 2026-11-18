@@ -27,6 +27,9 @@ or verification fails, the marker is not published and queries remain on the ori
 Events arriving after the compaction snapshot are read alongside the compacted object, so an
 operator may explicitly include the active day by passing tomorrow's UTC date to `--before`.
 The safe default still excludes the active day.
+On later runs, a previously compacted partition becomes eligible again after it accumulates
+at least `--minimum-objects` late arrivals. The replacement compact object covers the full
+partition snapshot; its manifest atomically supersedes the earlier compact object.
 
 Run an encrypted backup before the first production compaction and after a successful run.
 Compare a representative investigation before and after applying compaction. The command

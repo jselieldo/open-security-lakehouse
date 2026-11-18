@@ -24,11 +24,37 @@ def test_plan_only_selects_completed_uncompacted_partitions() -> None:
     keys += [f"{compacted}/batch={index}.parquet" for index in range(3)]
     keys.append(f"{compacted}/_compaction.json")
 
-    plans = plan_compaction(date(2026, 11, 18), minimum_objects=2, keys=keys)
+    plans = plan_compaction(
+        date(2026, 11, 18),
+        minimum_objects=2,
+        keys=keys,
+        manifests={
+            compacted: {
+                "source_objects": [f"{compacted}/batch={index}.parquet" for index in range(3)]
+            }
+        },
+    )
 
     assert [plan.partition for plan in plans] == [old]
     assert plans[0].source_objects == 3
     assert plans[0].source_keys == tuple(f"{old}/batch={index}.parquet" for index in range(3))
+
+
+def test_plan_recompacts_partition_after_enough_late_objects() -> None:
+    partition = "normalized/source=windows/year=2026/month=11/day=17"
+    covered = [f"{partition}/batch={index}.parquet" for index in range(3)]
+    late = [f"{partition}/batch=late-{index}.parquet" for index in range(2)]
+    keys = covered + late + [f"{partition}/_compaction.json"]
+
+    plans = plan_compaction(
+        date(2026, 11, 18),
+        minimum_objects=2,
+        keys=keys,
+        manifests={partition: {"source_objects": covered}},
+    )
+
+    assert len(plans) == 1
+    assert plans[0].source_keys == tuple(sorted(covered + late))
 
 
 def test_compaction_publishes_manifest_only_after_verified_object(monkeypatch) -> None:
