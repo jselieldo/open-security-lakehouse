@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -15,9 +16,24 @@ def test_windows_vector_configuration_is_bounded() -> None:
     assert source["events_per_second"] == 100
     assert source["include_xml"] is False
     assert source["max_event_data_length"] == 4096
+    assert "Microsoft-Windows-PowerShell/Operational" in source["channels"]
+    assert "Microsoft-Windows-Windows Defender/Operational" in source["channels"]
     assert config["sinks"]["osl_syslog"]["address"] == "192.168.3.120:5514"
     assert config["sinks"]["osl_syslog"]["mode"] == "tcp"
     assert config["sinks"]["osl_syslog"]["buffer"]["type"] == "disk"
+
+
+def test_server_vector_batches_events_before_object_storage() -> None:
+    template = (ROOT / "infrastructure/vector/vector.toml.template").read_text(
+        encoding="utf-8"
+    )
+    config = tomllib.loads(
+        template.replace("__SYSLOG_ALLOWED_CIDR__", "192.168.3.0/24").replace(
+            "__COLLECTOR_API_TOKEN__", "x" * 32
+        )
+    )
+    assert config["sinks"]["osl_api"]["batch"]["max_events"] == 100
+    assert config["sinks"]["osl_api"]["batch"]["timeout_secs"] == 2
 
 
 def test_windows_installer_uses_least_privilege_service_account() -> None:

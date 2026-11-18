@@ -125,6 +125,27 @@ def test_host_application_and_type_filters(monkeypatch) -> None:
     assert investigate(InvestigationRequest(hostname="other")).total_count == 0
 
 
+def test_investigation_filters_multiple_event_types(monkeypatch) -> None:
+    records = rows()
+    records[0]["event_type"] = "windows.security.4720"
+    records[1]["event_type"] = "windows.security.4624"
+    body = parquet_bytes(records)
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: ["one.parquet"])
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
+    result = investigate(
+        InvestigationRequest(
+            event_types=["windows.security.4720", "windows.security.4732"]
+        )
+    )
+    assert result.total_count == 1
+    assert result.events[0]["event_type"] == "windows.security.4720"
+
+
+def test_event_types_are_deduplicated_and_bounded() -> None:
+    request = InvestigationRequest(event_types=["windows.security.4625"] * 2)
+    assert request.event_types == ["windows.security.4625"]
+
+
 def test_investigation_filters_message_content(monkeypatch) -> None:
     data = rows()
     data[0]["raw_event_json"] = '{"message":"Failed password for root"}'

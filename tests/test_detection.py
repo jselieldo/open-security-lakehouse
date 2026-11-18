@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 
+import yaml
 from app.database import Alert, Base
 from app.detection import (
     DetectionRule,
@@ -69,6 +71,19 @@ query:
     assert len(rules) == 1
     assert rules[0].id == "test-rule"
     assert rules[0].query.source == "linux"
+
+
+def test_repository_detection_rules_are_valid_and_unique() -> None:
+    rules_dir = Path(__file__).parents[1] / "detections" / "rules"
+    rules = [
+        DetectionRule.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+        for path in rules_dir.glob("*.yaml")
+    ]
+    ids = [item.id for item in rules]
+    assert len(ids) == len(set(ids))
+    windows = [item for item in rules if item.id.startswith("windows-")]
+    assert len(windows) == 6
+    assert all(item.query.source == "windows-eventlog" for item in windows)
 
 
 def test_detection_creates_alert_and_evidence(monkeypatch) -> None:

@@ -121,5 +121,10 @@ def _build_filters(request: InvestigationRequest) -> tuple[str, list[object]]:
         clauses.append(f"source NOT IN ({placeholders})")
         parameters.extend(request.exclude_sources)
 
+    if request.event_types:
+        placeholders = ", ".join("?" for _ in request.event_types)
+        clauses.append(f"event_type IN ({placeholders})")
+        parameters.extend(request.event_types)
+
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     return where, parameters

@@ -1,0 +1,19 @@
+id: windows-account-changes
+title: Windows account or group membership changed
+description: Detects creation, enablement, deletion or privileged group membership changes.
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 1
+lookback_minutes: 10
+query:
+  source: windows-eventlog
+  event_types:
+    - windows.security.4720
+    - windows.security.4722
+    - windows.security.4724
+    - windows.security.4725
+    - windows.security.4726
+    - windows.security.4732
+    - windows.security.4733
+  limit: 1000

@@ -9,6 +9,8 @@ Accepted for the trusted single-subnet homelab.
 Use Vector 0.61.0 on Windows with the native `windows_event_log` source. Vector
 is already part of the platform, is pinned, and is distributed under MPL-2.0.
 The agent keeps durable checkpoints and a disk buffer on the Windows host.
+Server-side Vector batches up to 100 records or two seconds before ingestion to
+bound object-count growth without changing the immutable raw-event contract.
 
 The Windows agent serializes the native record into the syslog message and sends
 RFC 5424 over the existing TCP listener. Server-side Vector identifies the
@@ -30,3 +32,5 @@ telemetry remains in S3-compatible object storage.
   routed boundary.
 - The first deployment limits backlog age, event rate, field size and excludes
   raw XML to control volume and sensitive-data exposure.
+- Detection rules select exact event types through bounded structured lists
+  rather than relying on untrusted raw-text fragments for event-ID matching.

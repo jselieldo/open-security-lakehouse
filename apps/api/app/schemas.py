@@ -64,6 +64,7 @@ class InvestigationRequest(BaseModel):
     hostname: str | None = Field(default=None, min_length=1, max_length=255)
     application: str | None = Field(default=None, min_length=1, max_length=200)
     event_type: str | None = Field(default=None, min_length=1, max_length=100)
+    event_types: list[str] = Field(default_factory=list, max_length=50)
     exclude_sources: list[str] = Field(default_factory=list, max_length=20)
     message_contains: str | None = Field(default=None, min_length=1, max_length=500)
     start_time: datetime | None = None
@@ -78,6 +79,13 @@ class InvestigationRequest(BaseModel):
     def validate_exclude_sources(cls, values: list[str]) -> list[str]:
         if any(not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", value) for value in values):
             raise ValueError("excluded sources must use lowercase source identifiers")
+        return list(dict.fromkeys(values))
+
+    @field_validator("event_types")
+    @classmethod
+    def validate_event_types(cls, values: list[str]) -> list[str]:
+        if any(not value or len(value) > 100 for value in values):
+            raise ValueError("event types must contain 1 to 100 characters")
         return list(dict.fromkeys(values))
 
     @field_validator("src_ip")

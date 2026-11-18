@@ -1,0 +1,12 @@
+id: windows-failed-logins
+title: Repeated Windows logon failures
+description: Detects five or more failed Windows logons (event 4625) in ten minutes.
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 5
+lookback_minutes: 10
+query:
+  source: windows-eventlog
+  event_type: windows.security.4625
+  limit: 1000

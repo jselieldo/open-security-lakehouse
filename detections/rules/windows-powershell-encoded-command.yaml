@@ -1,0 +1,13 @@
+id: windows-powershell-encoded-command
+title: PowerShell encoded command observed
+description: Detects script-block events containing the EncodedCommand argument.
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 1
+lookback_minutes: 10
+query:
+  source: windows-eventlog
+  event_type: windows.microsoft-windows-powershell/operational.4104
+  message_contains: EncodedCommand
+  limit: 1000

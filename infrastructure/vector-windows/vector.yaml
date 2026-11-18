@@ -8,6 +8,8 @@ sources:
       - Application
       - Security
       - Windows PowerShell
+      - Microsoft-Windows-PowerShell/Operational
+      - Microsoft-Windows-Windows Defender/Operational
     read_existing_events: true
     max_event_age_secs: 3600
     checkpoint_interval_secs: 5

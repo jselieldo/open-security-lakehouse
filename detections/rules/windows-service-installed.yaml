@@ -1,0 +1,12 @@
+id: windows-service-installed
+title: Windows service installed
+description: Detects installation of a Windows service (System event 7045).
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 1
+lookback_minutes: 10
+query:
+  source: windows-eventlog
+  event_type: windows.system.7045
+  limit: 1000

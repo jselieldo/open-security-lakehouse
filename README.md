@@ -86,6 +86,11 @@ Windows records are stored under source `windows-eventlog`; the original record
 is preserved while hostname, provider, channel, event ID and severity become
 structured investigation fields.
 
+The server-side Vector groups up to 100 events or two seconds of traffic per
+ingestion batch. This avoids one S3 object per Windows record. Versioned rules
+cover repeated logon failures, account and group changes, service installation,
+audit-log clearing, Defender threats and encoded PowerShell commands.
+
 Follow [the Windows collector runbook](docs/runbooks/windows-eventlog.md). The
 initial transport uses CIDR-restricted TCP syslog on the trusted homelab LAN; it
 is not encrypted and must not be exposed to the Internet or used across an

@@ -45,6 +45,14 @@ directory ACL to Local Service, Administrators and SYSTEM. The initial start
 reads at most the previous hour and then resumes from durable per-channel
 checkpoints. Event-data fields are limited to 4096 bytes and raw XML is disabled.
 
+The collector also subscribes to the Microsoft Defender and modern PowerShell
+operational channels. A channel that does not exist on a particular Windows
+edition is skipped without weakening the other subscriptions.
+
+Server-side Vector flushes a batch after 100 events or two seconds, whichever
+comes first. Do not reduce this to one event per request: doing so creates one raw
+and one normalized object for every record and degrades investigation performance.
+
 ## Register and verify the source
 
 Register it from the homelab with an administrator access token:
@@ -59,6 +67,13 @@ curl --fail -X POST http://127.0.0.1:8000/api/v1/sources \
 Generate or locate a harmless Application event, then filter the OSL console by
 source `windows-eventlog`, hostname and event type. Raw Windows fields remain in
 the immutable raw object and in the normalized row's `raw_event_json`.
+
+## Detection coverage
+
+Versioned rules detect event 4625 bursts, account and group changes, service
+installation (7045), Security log clearing (1102), Defender threat events and
+PowerShell 4104 records containing `EncodedCommand`. Validation traffic must use
+a harmless event ID that none of these rules match.
 
 ## Data minimization
 

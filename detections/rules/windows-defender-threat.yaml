@@ -1,0 +1,15 @@
+id: windows-defender-threat
+title: Microsoft Defender threat detected
+description: Detects malware or potentially unwanted software reported by Defender.
+severity: critical
+enabled: true
+schedule_minutes: 5
+threshold: 1
+lookback_minutes: 10
+query:
+  source: windows-eventlog
+  event_types:
+    - windows.microsoft-windows-windows_defender/operational.1116
+    - windows.microsoft-windows-windows_defender/operational.1117
+    - windows.microsoft-windows-windows_defender/operational.5001
+  limit: 1000

@@ -302,7 +302,11 @@ def _windows_syslog_event(event: dict[str, Any], index: int) -> dict[str, Any]:
     canonical = json.dumps(
         raw_windows or event, separators=(",", ":"), sort_keys=True, default=str
     )
-    identity = f"{hostname}:{channel}:{record_id}:{windows_event_id}:{index}:{canonical}"
+    identity = (
+        f"{hostname}:{channel}:{record_id}:{windows_event_id}"
+        if record_id is not None
+        else f"{index}:{canonical}"
+    )
     rendered_message = raw_windows.get("message")
     if not isinstance(rendered_message, str) or not rendered_message:
         rendered_message = f"Windows event {windows_event_id or 'unknown'} from {provider}"

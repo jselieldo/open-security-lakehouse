@@ -1,0 +1,12 @@
+id: windows-audit-log-cleared
+title: Windows audit log cleared
+description: Detects clearing of the Windows Security audit log (event 1102).
+severity: critical
+enabled: true
+schedule_minutes: 5
+threshold: 1
+lookback_minutes: 10
+query:
+  source: windows-eventlog
+  event_type: windows.security.1102
+  limit: 1000
