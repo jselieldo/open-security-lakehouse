@@ -18,7 +18,13 @@ def test_windows_vector_configuration_is_bounded() -> None:
     assert source["max_event_data_length"] == 4096
     assert "Microsoft-Windows-PowerShell/Operational" in source["channels"]
     assert "Microsoft-Windows-Windows Defender/Operational" in source["channels"]
-    assert config["sinks"]["osl_syslog"]["address"] == "192.168.3.120:5514"
+    sink = config["sinks"]["osl_syslog"]
+    assert sink["address"] == "192.168.3.120:6514"
+    assert sink["tls"]["enabled"] is True
+    assert sink["tls"]["verify_certificate"] is True
+    assert sink["tls"]["verify_hostname"] is True
+    assert sink["tls"]["server_name"] == "osl-syslog"
+    assert sink["tls"]["key_file"].endswith("client.key")
     assert config["sinks"]["osl_syslog"]["mode"] == "tcp"
     assert config["sinks"]["osl_syslog"]["buffer"]["type"] == "disk"
 
@@ -32,6 +38,15 @@ def test_server_vector_batches_events_before_object_storage() -> None:
             "__COLLECTOR_API_TOKEN__", "x" * 32
         )
     )
+    mtls = config["sources"]["syslog_mtls"]
+    assert mtls["address"] == "0.0.0.0:6514"
+    assert mtls["tls"]["enabled"] is True
+    assert mtls["tls"]["verify_certificate"] is True
+    assert mtls["tls"]["client_metadata_key"] == "tls_client"
+    assert config["transforms"]["tag_source"]["inputs"] == [
+        "linux_syslog",
+        "syslog_mtls",
+    ]
     assert "osl_api" not in config["sinks"]
     for sink_id in ("osl_api_windows", "osl_api_linux", "osl_api_test"):
         assert config["sinks"][sink_id]["batch"]["max_events"] == 100
@@ -52,4 +67,7 @@ def test_windows_installer_uses_least_privilege_service_account() -> None:
     assert "-RunLevel Limited" in installer
     assert "NT AUTHORITY\\SYSTEM" not in installer
     assert "Stop-ScheduledTask -TaskName $taskName" in installer
+    assert "data\\mtls\\clients\\windows" in installer
+    assert "client.key" in installer
+    assert "(OI)(CI)R" in installer
     assert installer.index("Stop-ScheduledTask") < installer.index("Register-ScheduledTask")

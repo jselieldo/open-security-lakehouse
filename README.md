@@ -10,7 +10,9 @@ parsers require sanitized real samples. See
 Milestone 10 added a dedicated detection worker, Alertmanager and alert triage.
 Prometheus and Grafana provide ingestion, dependency and lake metrics.
 
-This is a development foundation, not a production-ready SIEM. The Compose topology is single-host and has no high availability or TLS termination.
+This is a development foundation, not a production-ready SIEM. The Compose topology is
+single-host and has no high availability or browser-facing TLS termination. Network syslog
+collectors use a private mTLS listener.
 
 ## Prerequisites
 
@@ -32,6 +34,12 @@ Edit `.env`. Replace every `CHANGE_ME` value. Generate secrets, for example:
 
 ```bash
 openssl rand -hex 32
+```
+
+Generate the local collector authority and certificates before the first Compose start:
+
+```bash
+OSL_MTLS_SERVER_IP="$(hostname -I | awk '{print $1}')" ./scripts/generate-mtls-certs.sh
 ```
 
 Validate and start:
@@ -99,7 +107,9 @@ the Windows host.
 
 ## Collect Linux/syslog events
 
-Vector 0.61.0 listens for RFC 3164/5424 syslog over TCP on port 5514. Restrict `SYSLOG_ALLOWED_CIDR` in `.env` to the homelab subnet before starting. UDP is intentionally disabled because it cannot provide delivery feedback.
+Vector 0.61.0 accepts authenticated TLS syslog on TCP 6514 during a staged migration from
+CIDR-restricted TCP 5514. UDP is intentionally disabled because it cannot provide delivery
+feedback. See [the collector mTLS runbook](docs/runbooks/collector-mtls.md).
 
 For the homelab host itself, install the versioned selective forwarding policy:
 

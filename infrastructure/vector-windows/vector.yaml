@@ -33,8 +33,16 @@ sinks:
     type: socket
     inputs:
       - prepare_for_osl
-    address: 192.168.3.120:5514
+    address: 192.168.3.120:6514
     mode: tcp
+    tls:
+      enabled: true
+      ca_file: C:\ProgramData\OpenSecurityLakehouse\mtls\ca.crt
+      crt_file: C:\ProgramData\OpenSecurityLakehouse\mtls\client.crt
+      key_file: C:\ProgramData\OpenSecurityLakehouse\mtls\client.key
+      server_name: osl-syslog
+      verify_certificate: true
+      verify_hostname: true
     acknowledgements:
       enabled: true
     encoding:

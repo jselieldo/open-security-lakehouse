@@ -11,12 +11,26 @@ mode = "tcp"
 max_length = 102400
 permit_origin = ["__SYSLOG_ALLOWED_CIDR__"]
 
+[sources.syslog_mtls]
+type = "syslog"
+address = "0.0.0.0:6514"
+mode = "tcp"
+max_length = 102400
+permit_origin = ["__SYSLOG_ALLOWED_CIDR__"]
+tls.enabled = true
+tls.ca_file = "/etc/osl/mtls/ca.crt"
+tls.crt_file = "/etc/osl/mtls/server.crt"
+tls.key_file = "/etc/osl/mtls/server.key"
+tls.verify_certificate = true
+tls.client_metadata_key = "tls_client"
+tls_handshake_timeout_secs = 10
+
 [sources.internal_metrics]
 type = "internal_metrics"
 
 [transforms.tag_source]
 type = "remap"
-inputs = ["linux_syslog"]
+inputs = ["linux_syslog", "syslog_mtls"]
 source = '''
 if .appname == "osl-smoke" {
   .osl_source = "test-syslog"

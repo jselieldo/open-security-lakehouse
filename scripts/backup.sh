@@ -44,10 +44,12 @@ grafana_stopped=0
 
 cp .env "$stage/environment.env"
 cp compose.yaml "$stage/compose.yaml"
+test -d data/mtls || { echo "mTLS certificate directory data/mtls is missing" >&2; exit 1; }
+tar -C data/mtls -cf "$stage/mtls.tar" .
 git rev-parse HEAD > "$stage/git-commit.txt"
 (
   cd "$stage"
-  sha256sum osl.dump keycloak.dump objects.tar grafana.tar environment.env compose.yaml git-commit.txt > SHA256SUMS
+  sha256sum osl.dump keycloak.dump objects.tar grafana.tar environment.env compose.yaml mtls.tar git-commit.txt > SHA256SUMS
 )
 tar -C "$stage" -cf - . | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
   -pass "file:$key_file" -out "$backup_dir/$name.tar.enc"

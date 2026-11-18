@@ -11,8 +11,8 @@ Browser --OIDC/PKCE--> Keycloak --dedicated DB--> PostgreSQL
                          |
                       SeaweedFS
 
-Linux/rsyslog --TCP 5514--> Vector --disk buffer--> FastAPI ingestion
-Windows Event Log --Vector/RFC5424 TCP 5514--> Vector --> FastAPI ingestion
+Linux/rsyslog --mTLS TCP 6514--> Vector --disk buffer--> FastAPI ingestion
+Windows Event Log --Vector/RFC5424 mTLS TCP 6514--> Vector --> FastAPI ingestion
 
 FastAPI + Vector --metrics--> Prometheus --datasource--> Grafana
 ```

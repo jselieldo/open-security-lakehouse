@@ -12,6 +12,8 @@ $configDirectory = Join-Path $vectorRoot 'config'
 $targetConfig = Join-Path $configDirectory 'vector.yaml'
 $vendorBackup = Join-Path $configDirectory 'vector.yaml.vendor-default'
 $dataDirectory = 'C:\ProgramData\OpenSecurityLakehouse\vector-data'
+$sourceCertificates = Join-Path $repository 'data\mtls\clients\windows'
+$certificateDirectory = 'C:\ProgramData\OpenSecurityLakehouse\mtls'
 $taskName = 'OpenSecurityLakehouseVector'
 $localServiceSid = 'S-1-5-19'
 $eventLogReadersSid = 'S-1-5-32-573'
@@ -22,6 +24,11 @@ if (-not (Test-Path -LiteralPath $vectorExe)) {
 if (-not (Test-Path -LiteralPath $sourceConfig)) {
     throw "Collector configuration was not found at $sourceConfig"
 }
+foreach ($certificate in @('ca.crt', 'client.crt', 'client.key')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $sourceCertificates $certificate))) {
+        throw "Missing mTLS certificate: $certificate"
+    }
+}
 
 $installedVersion = (& $vectorExe --version | Select-Object -First 1)
 if ($installedVersion -notmatch "^vector $([regex]::Escape($expectedVersion))\b") {
@@ -29,6 +36,17 @@ if ($installedVersion -notmatch "^vector $([regex]::Escape($expectedVersion))\b"
 }
 
 New-Item -ItemType Directory -Force -Path $dataDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $certificateDirectory | Out-Null
+Copy-Item -LiteralPath (Join-Path $sourceCertificates 'ca.crt') -Destination $certificateDirectory -Force
+Copy-Item -LiteralPath (Join-Path $sourceCertificates 'client.crt') -Destination $certificateDirectory -Force
+Copy-Item -LiteralPath (Join-Path $sourceCertificates 'client.key') -Destination $certificateDirectory -Force
+& icacls.exe $certificateDirectory /inheritance:r /grant:r `
+    '*S-1-5-18:(OI)(CI)F' `
+    '*S-1-5-32-544:(OI)(CI)F' `
+    "*$localServiceSid`:(OI)(CI)R" | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw 'Failed to restrict the mTLS certificate directory ACL.'
+}
 & icacls.exe $dataDirectory /inheritance:r /grant:r `
     '*S-1-5-18:(OI)(CI)F' `
     '*S-1-5-32-544:(OI)(CI)F' `

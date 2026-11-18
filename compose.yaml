@@ -91,11 +91,15 @@ services:
     volumes:
       - ./infrastructure/vector/vector.toml.template:/etc/vector/vector.toml.template:ro
       - ./infrastructure/vector/entrypoint.sh:/entrypoint.sh:ro
+      - ./data/mtls/ca/ca.crt:/etc/osl/mtls/ca.crt:ro
+      - ./data/mtls/server/server.crt:/etc/osl/mtls/server.crt:ro
+      - ./data/mtls/server/server.key:/etc/osl/mtls/server.key:ro
       - vector-data:/var/lib/vector
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     command: ["--config", "/tmp/vector.toml"]
     ports:
       - "${SYSLOG_BIND_ADDRESS:-0.0.0.0}:${SYSLOG_PORT:-5514}:5514/tcp"
+      - "${SYSLOG_MTLS_BIND_ADDRESS:-0.0.0.0}:${SYSLOG_MTLS_PORT:-6514}:6514/tcp"
     depends_on:
       api:
         condition: service_healthy

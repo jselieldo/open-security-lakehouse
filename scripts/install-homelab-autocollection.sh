@@ -3,14 +3,21 @@ set -euo pipefail
 
 source_file="infrastructure/rsyslog/60-osl.conf"
 target_file="/etc/rsyslog.d/60-osl.conf"
+certificate_source="data/mtls/clients/homelab"
+certificate_target="/etc/osl/mtls"
 collector_host="${OSL_SYSLOG_HOST:-$(hostname -I | awk '{print $1}')}"
 
 test -f "$source_file"
 test -n "$collector_host"
+for file in ca.crt client.crt client.key; do test -f "$certificate_source/$file"; done
 temporary_file="$(mktemp)"
 trap 'rm -f "$temporary_file"' EXIT
 sed "s/__OSL_SYSLOG_HOST__/$collector_host/g" "$source_file" > "$temporary_file"
 sudo install -o root -g root -m 0644 "$temporary_file" "$target_file"
+sudo install -d -o root -g root -m 0750 "$certificate_target"
+sudo install -o root -g root -m 0644 "$certificate_source/ca.crt" "$certificate_target/ca.crt"
+sudo install -o root -g root -m 0644 "$certificate_source/client.crt" "$certificate_target/client.crt"
+sudo install -o root -g root -m 0600 "$certificate_source/client.key" "$certificate_target/client.key"
 sudo rsyslogd -N1
 sudo systemctl restart rsyslog
 sudo systemctl is-active --quiet rsyslog
