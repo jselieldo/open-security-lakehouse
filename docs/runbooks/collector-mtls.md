@@ -30,6 +30,20 @@ Copy only `data/mtls/clients/windows/{ca.crt,client.crt,client.key}` to the same
 in the Windows checkout, then rerun the elevated Windows collector installer. Never transfer
 the CA private key or another client's private key.
 
+Rotate one client at a time without replacing the authority:
+
+```bash
+./scripts/rotate-mtls-client.sh homelab
+./scripts/rotate-mtls-client.sh windows
+```
+
+The replacement subjects are `CN=homelab-client` and `CN=windows-client`. The script verifies
+the new certificate before replacing the source files and keeps the previous key and
+certificate under the ignored `data/mtls/retired` directory for rollback. Reinstall and
+validate each collector before rotating the next one. After both replacements are confirmed
+in raw event `tls_client` metadata, securely remove the retired private keys; keeping them
+allows the retired identities to reconnect until the CA is replaced or revocation is added.
+
 Linux and Windows were both observed after collector and server restarts with certificate
 metadata retained in their raw events. The transitional TCP 5514 listener has therefore been
 removed. Confirm TCP 6514 after future upgrades and treat any reintroduction of plaintext

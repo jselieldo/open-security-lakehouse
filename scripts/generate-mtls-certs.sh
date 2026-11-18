@@ -26,12 +26,13 @@ issue_certificate() {
   directory="$2"
   usage="$3"
   san="$4"
+  common_name="${5:-$name}"
   extension="$(mktemp)"
   trap 'rm -f "$extension"' RETURN
   printf 'basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=%s\nsubjectAltName=%s\n' \
     "$usage" "$san" > "$extension"
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$directory/${name}.key"
-  openssl req -new -sha256 -key "$directory/${name}.key" -subj "/CN=$name/O=Open Security Lakehouse" \
+  openssl req -new -sha256 -key "$directory/${name}.key" -subj "/CN=$common_name/O=Open Security Lakehouse" \
     -out "$directory/${name}.csr"
   openssl x509 -req -sha256 -days "$valid_days" -in "$directory/${name}.csr" \
     -CA "$root/ca/ca.crt" -CAkey "$root/ca/ca.key" -CAcreateserial \
@@ -43,8 +44,8 @@ issue_certificate() {
 issue_certificate server "$root/server" serverAuth "DNS:osl-syslog,DNS:homelab,IP:$server_ip"
 mv "$root/server/server.key" "$root/server/server.key.tmp"
 mv "$root/server/server.key.tmp" "$root/server/server.key"
-issue_certificate client "$root/clients/homelab" clientAuth "DNS:homelab"
-issue_certificate client "$root/clients/windows" clientAuth "DNS:windows-workstation"
+issue_certificate client "$root/clients/homelab" clientAuth "DNS:homelab" homelab-client
+issue_certificate client "$root/clients/windows" clientAuth "DNS:windows-workstation" windows-client
 cp "$root/ca/ca.crt" "$root/clients/homelab/ca.crt"
 cp "$root/ca/ca.crt" "$root/clients/windows/ca.crt"
 chmod 600 "$root/ca/ca.key" "$root/server/server.key" "$root/clients/"*/client.key

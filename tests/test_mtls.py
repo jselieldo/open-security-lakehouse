@@ -12,7 +12,21 @@ def test_certificate_generator_keeps_keys_outside_git_and_refuses_overwrite() ->
     assert "clientAuth" in script
     assert "chmod 600" in script
     assert "openssl verify" in script
+    assert "homelab-client" in script
+    assert "windows-client" in script
     assert "data/" in (ROOT / ".gitignore").read_text()
+
+
+def test_client_rotation_is_scoped_verified_and_recoverable() -> None:
+    script = (ROOT / "scripts" / "rotate-mtls-client.sh").read_text()
+    assert 'case "$client" in' in script
+    assert "homelab|windows" in script
+    assert "rsa_keygen_bits:3072" in script
+    assert "extendedKeyUsage=clientAuth" in script
+    assert 'openssl verify -CAfile "$root/ca/ca.crt"' in script
+    assert '"/CN=$client-client/O=Open Security Lakehouse"' in script
+    assert 'retired="$root/retired/$client-$timestamp"' in script
+    assert 'install -m 0600 "$staging/client.key"' in script
 
 
 def test_linux_forwarder_requires_named_mtls_peer_and_durable_queue() -> None:
