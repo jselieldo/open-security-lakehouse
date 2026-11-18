@@ -3,9 +3,10 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pyarrow.parquet as pq
+import pytest
 from app.database import Base, SourceCatalog
-from app.ingestion import docker_events_to_request, ingest_batch
-from app.main import app, read_sources, upsert_source
+from app.ingestion import docker_events_to_request, docker_logs_to_request, ingest_batch
+from app.main import app, process_docker_log_batch, read_sources, upsert_source
 from app.schemas import SourceRegistration
 from app.security import Principal
 from app.sources import list_sources, register_source, source_response
@@ -56,6 +57,46 @@ def test_docker_adapter_rejects_wrong_type_and_missing_timestamp() -> None:
         raise AssertionError("invalid Docker event was accepted")
 
 
+def docker_log(stream: str = "stdout") -> dict:
+    return {
+        "timestamp": "2026-11-18T04:45:00.123456789Z",
+        "stream": stream,
+        "message": "application started",
+        "container_id": "a" * 64,
+        "container_name": "example-api",
+        "image": "example/api:1.0",
+        "osl_hostname": "homelab",
+    }
+
+
+def test_docker_log_adapter_batches_and_preserves_application_context() -> None:
+    payload = [docker_log(), docker_log("stderr") | {"message": "connection failed"}]
+    first = docker_logs_to_request(json.dumps(payload).encode())
+    assert first == docker_logs_to_request(json.dumps(payload).encode())
+    assert first.source == "docker-logs"
+    assert len(first.events) == 2
+    assert first.events[0]["application"] == "example-api"
+    assert first.events[0]["event_type"] == "container.log.stdout"
+    assert first.events[1]["event_type"] == "container.log.stderr"
+    assert first.events[1]["severity_id"] == 3
+    assert first.events[0]["docker_log"] == payload[0]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"stream": "unknown"},
+        {"timestamp": "2026-11-18T04:45:00"},
+        {"message": ""},
+        {"container_id": "not-an-id"},
+        {"container_name": ""},
+    ],
+)
+def test_docker_log_adapter_rejects_invalid_records(change) -> None:
+    with pytest.raises((ValueError, OverflowError)):
+        docker_logs_to_request(json.dumps([docker_log() | change]).encode())
+
+
 def test_registered_source_tracks_ingestion_and_silence(monkeypatch) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -93,6 +134,7 @@ def test_source_public_endpoints_and_conflict() -> None:
     paths = {route.path for route in app.routes}
     assert "/api/v1/sources" in paths
     assert "/api/v1/ingestion/docker" in paths
+    assert "/api/v1/ingestion/docker-logs" in paths
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     payload = SourceRegistration(
@@ -142,12 +184,19 @@ def test_source_endpoint_role_contracts(monkeypatch) -> None:
         for route in app.routes
         if getattr(route, "path", None) == "/api/v1/ingestion/docker"
     )
+    docker_log_route = next(
+        route
+        for route in app.routes
+        if getattr(route, "path", None) == "/api/v1/ingestion/docker-logs"
+    )
     source_dependency = source_route.dependant.dependencies[0].call
     docker_dependency = docker_route.dependant.dependencies[0].call
+    docker_log_dependency = docker_log_route.dependant.dependencies[0].call
     viewer = Principal("viewer", "viewer", None, None, frozenset({"viewer"}), "test")
     ingestor = Principal("ingestor", "ingestor", None, None, frozenset({"ingestor"}), "test")
     assert source_dependency(request, viewer) == viewer
     assert docker_dependency(request, ingestor) == ingestor
+    assert docker_log_dependency(request, ingestor) == ingestor
     try:
         source_dependency(request, ingestor)
     except HTTPException as exc:
@@ -166,3 +215,12 @@ def test_source_endpoint_reports_dependency_failure(monkeypatch) -> None:
         assert str(exc) == "db down"
     else:
         raise AssertionError("database failure was hidden")
+
+
+def test_docker_log_endpoint_reports_dependency_failure(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.main.ingest_batch", lambda *_args: (_ for _ in ()).throw(RuntimeError("db down"))
+    )
+
+    with pytest.raises(RuntimeError, match="db down"):
+        process_docker_log_batch(json.dumps([docker_log()]).encode(), None)  # type: ignore[arg-type]

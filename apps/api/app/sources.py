@@ -52,9 +52,12 @@ def record_source_batch(
         matching = SourceCatalog(
             source_id=fallback_id,
             source=source_name,
-            kind="docker" if source_name == "docker-events" else "unclassified",
+            kind="docker" if source_name in {"docker-events", "docker-logs"} else "unclassified",
             hostname=host,
-            display_name="Docker events" if source_name == "docker-events" else source_name,
+            display_name={
+                "docker-events": "Docker events",
+                "docker-logs": "Docker application logs",
+            }.get(source_name, source_name),
             configured=False,
         )
         db.add(matching)

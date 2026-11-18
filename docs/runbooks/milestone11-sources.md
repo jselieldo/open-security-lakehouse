@@ -51,6 +51,33 @@ Install the homelab Docker collector as a restricted host service:
 systemctl status osl-docker-collector.service
 ```
 
-The API and Vector containers never receive the Docker socket. Only the host-side service
-runs under the homelab user, with membership in the existing `docker` group and a
+The API and Vector containers never receive the Docker socket. Only the host-side services
+run under the homelab user, with membership in the existing `docker` group and a
 root-owned credential file.
+
+# Docker application logs
+
+The installer also enables `osl-docker-log-collector.service`. It polls `stdout` and
+`stderr` through the host Docker CLI, sends batches to `/api/v1/ingestion/docker-logs`, and
+stores a per-container checkpoint under `/var/lib/osl-docker-log-collector/`. Messages are
+limited to 16 KiB; container environment variables and labels are not collected.
+
+Containers whose names start with `open-security-lakehouse-` are excluded by default. This
+prevents an ingestion request from producing another API log and creating a feedback loop.
+Use anchored regular expressions in `/etc/osl/docker-collector.env` to select workloads:
+
+```ini
+OSL_DOCKER_LOG_INCLUDE=^(business-api|worker)-
+OSL_DOCKER_LOG_EXCLUDE=^open-security-lakehouse-
+OSL_DOCKER_LOG_INTERVAL_SECONDS=15
+```
+
+Restart the collector after changing filters and confirm its health:
+
+```bash
+sudo systemctl restart osl-docker-log-collector.service
+systemctl status osl-docker-log-collector.service
+```
+
+In the console, investigate with `Fonte = docker-logs`, application equal to the container
+name, and event type `container.log.stdout` or `container.log.stderr`.

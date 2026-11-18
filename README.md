@@ -310,5 +310,10 @@ Original normalized batches and raw evidence remain preserved. Investigation swi
 compacted partition only after its output is verified and its completion manifest is written.
 See [the lake compaction runbook](docs/runbooks/lake-compaction.md).
 
-The next increment should address lake retention and collection of Docker application logs.
+Docker application `stdout` and `stderr` collection is installed alongside lifecycle event
+collection with `./scripts/install-docker-collector.sh`. The OSL stack is excluded by default
+to prevent feedback loops; see [the source onboarding runbook](docs/runbooks/milestone11-sources.md).
+
+The next increment should add application-aware detections and a deliberate lake-retention
+policy.
 Firewall/router and application parsers remain pending real sanitized samples.

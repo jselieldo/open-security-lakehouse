@@ -1,5 +1,6 @@
 import io
 import json
+import re
 from datetime import UTC, datetime
 from hashlib import sha256
 from time import perf_counter
@@ -178,6 +179,7 @@ def vector_events_to_request(body: bytes) -> IngestionRequest:
 
 
 DOCKER_ACTIONS = frozenset({"start", "stop", "die", "restart", "oom", "kill"})
+DOCKER_LOG_STREAMS = frozenset({"stdout", "stderr"})
 
 
 def docker_events_to_request(body: bytes) -> IngestionRequest:
@@ -221,6 +223,60 @@ def docker_events_to_request(body: bytes) -> IngestionRequest:
         batch_id=f"docker-{digest[:32]}",
         source="test-docker" if raw.get("osl_test") is True or labeled_test else "docker-events",
         events=[event],
+    )
+
+
+def docker_logs_to_request(body: bytes) -> IngestionRequest:
+    raw_logs = _parse_vector_body(body)
+    if len(raw_logs) > get_settings().max_batch_events:
+        raise BatchTooLargeError(get_settings().max_batch_events)
+    events: list[dict[str, Any]] = []
+    for raw in raw_logs:
+        timestamp = raw.get("timestamp")
+        stream = raw.get("stream")
+        message = raw.get("message")
+        container_id = raw.get("container_id")
+        container_name = raw.get("container_name")
+        host = raw.get("osl_hostname")
+        if not isinstance(timestamp, str):
+            raise ValueError("Docker log requires timestamp")
+        parsed_timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if parsed_timestamp.tzinfo is None:
+            raise ValueError("Docker log timestamp requires timezone")
+        if stream not in DOCKER_LOG_STREAMS:
+            raise ValueError("unsupported Docker log stream")
+        if not isinstance(message, str) or not message or len(message) > 16_384:
+            raise ValueError("Docker log message must contain 1 to 16384 characters")
+        if (
+            not isinstance(container_id, str)
+            or not re.fullmatch(r"[a-f0-9]{12,64}", container_id)
+        ):
+            raise ValueError("Docker log requires container_id")
+        if not isinstance(container_name, str) or not container_name or len(container_name) > 200:
+            raise ValueError("Docker log requires container_name")
+        if not isinstance(host, str) or not host or len(host) > 255:
+            raise ValueError("Docker log requires osl_hostname")
+        canonical = json.dumps(raw, separators=(",", ":"), sort_keys=True)
+        digest = sha256(canonical.encode()).hexdigest()
+        events.append(
+            {
+                "event_id": f"docker-log-{digest[:32]}",
+                "event_time": parsed_timestamp.astimezone(UTC).isoformat(),
+                "severity_id": 3 if stream == "stderr" else 1,
+                "class_uid": 4002,
+                "hostname": host,
+                "application": container_name,
+                "event_type": f"container.log.{stream}",
+                "message": message,
+                "docker_log": raw,
+            }
+        )
+    canonical_batch = json.dumps(raw_logs, separators=(",", ":"), sort_keys=True)
+    digest = sha256(canonical_batch.encode()).hexdigest()
+    return IngestionRequest(
+        batch_id=f"docker-log-{digest[:32]}",
+        source="docker-logs",
+        events=events,
     )
 
 

@@ -30,6 +30,7 @@ from .ingestion import (
     BatchConflictError,
     BatchTooLargeError,
     docker_events_to_request,
+    docker_logs_to_request,
     get_batch_status,
     ingest_batch,
     vector_events_to_request,
@@ -246,6 +247,27 @@ async def create_docker_batch(request: Request, db: Session = Depends(get_db)) -
         return ingest_batch(docker_events_to_request(await request.body()), db)
     except (ValueError, json.JSONDecodeError, OverflowError, BatchTooLargeError) as exc:
         raise HTTPException(status_code=422, detail="invalid Docker event") from exc
+    except BatchConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/v1/ingestion/docker-logs",
+    response_model=IngestionResponse,
+    dependencies=[Depends(require_roles("ingestor"))],
+    tags=["ingestion"],
+)
+async def create_docker_log_batch(
+    request: Request, db: Session = Depends(get_db)
+) -> IngestionResponse:
+    return process_docker_log_batch(await request.body(), db)
+
+
+def process_docker_log_batch(body: bytes, db: Session) -> IngestionResponse:
+    try:
+        return ingest_batch(docker_logs_to_request(body), db)
+    except (ValueError, json.JSONDecodeError, OverflowError, BatchTooLargeError) as exc:
+        raise HTTPException(status_code=422, detail="invalid Docker log batch") from exc
     except BatchConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
