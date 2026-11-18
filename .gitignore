@@ -7,4 +7,5 @@ __pycache__/
 htmlcov/
 .ruff_cache/
 data/
+retention-plan.json
 

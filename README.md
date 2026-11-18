@@ -290,7 +290,7 @@ compose.yaml                 executable local topology
 
 See [architecture overview](docs/architecture/overview.md), [ADR 0001](docs/adr/0001-object-storage.md), and [ADR 0002](docs/adr/0002-identity-and-migrations.md).
 
-## Next milestone
+## Operational maintenance
 
 ### Compact normalized lake partitions
 
@@ -314,6 +314,19 @@ Docker application `stdout` and `stderr` collection is installed alongside lifec
 collection with `./scripts/install-docker-collector.sh`. The OSL stack is excluded by default
 to prevent feedback loops; see [the source onboarding runbook](docs/runbooks/milestone11-sources.md).
 
-The next increment should add application-aware detections and a deliberate lake-retention
-policy.
+### Plan lake retention
+
+Retention is deliberately separate from compaction and requires a reviewed, unexpired plan:
+
+```bash
+./scripts/retention.sh plan
+# Review retention-plan.json and confirm an off-host encrypted backup.
+./scripts/retention.sh apply
+```
+
+The default keeps raw, normalized, and quarantine data for 90 days; detection artifacts for
+365 days; and compacted source batches for 14 days. No unknown object prefix is deleted. See
+[the retention runbook](docs/runbooks/lake-retention.md).
+
+The next security increment should replace trusted-LAN collector credentials with mTLS.
 Firewall/router and application parsers remain pending real sanitized samples.

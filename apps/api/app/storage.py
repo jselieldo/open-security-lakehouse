@@ -70,3 +70,29 @@ def lake_storage_stats() -> dict[str, tuple[int, int]]:
 def get_object_bytes(key: str) -> bytes:
     response = get_s3_client().get_object(Bucket=get_settings().s3_bucket, Key=key)
     return response["Body"].read()
+
+
+def list_object_inventory() -> list[dict]:
+    client = get_s3_client()
+    paginator = client.get_paginator("list_objects_v2")
+    objects: list[dict] = []
+    for page in paginator.paginate(Bucket=get_settings().s3_bucket):
+        objects.extend(page.get("Contents", []))
+    return objects
+
+
+def delete_object_keys(keys: list[str]) -> int:
+    client = get_s3_client()
+    bucket = get_settings().s3_bucket
+    deleted = 0
+    for offset in range(0, len(keys), 1000):
+        batch = keys[offset : offset + 1000]
+        response = client.delete_objects(
+            Bucket=bucket,
+            Delete={"Objects": [{"Key": key} for key in batch], "Quiet": True},
+        )
+        errors = response.get("Errors", [])
+        if errors:
+            raise RuntimeError(f"object storage rejected {len(errors)} retention deletions")
+        deleted += len(batch)
+    return deleted
