@@ -1,9 +1,12 @@
 import signal
+from datetime import UTC, datetime
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
+from .config import get_settings
 from .database import SessionLocal
 from .detection import execute_rule, load_rules
+from .source_health import check_source_health
 from .storage import ensure_bucket
 
 
@@ -15,9 +18,24 @@ def run_rule(rule_id: str) -> None:
         execute_rule(rule, db)
 
 
+def run_source_health() -> None:
+    with SessionLocal() as db:
+        check_source_health(db)
+
+
 def main() -> None:
     ensure_bucket()
     scheduler = BlockingScheduler(timezone="UTC")
+    scheduler.add_job(
+        run_source_health,
+        "interval",
+        minutes=get_settings().source_health_check_minutes,
+        id="source-health",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        next_run_time=datetime.now(UTC),
+    )
     for rule in load_rules():
         if rule.enabled:
             scheduler.add_job(

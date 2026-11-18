@@ -65,6 +65,9 @@ class SourceCatalog(Base):
     last_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     accepted_events: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rejected_events: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
 
 
 class DetectionRun(Base):
@@ -89,6 +92,7 @@ class Alert(Base):
     alert_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     fingerprint: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     rule_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    source_id: Mapped[str | None] = mapped_column(String(100), index=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")

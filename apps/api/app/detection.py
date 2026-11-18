@@ -168,6 +168,7 @@ def alert_response(alert: Alert) -> AlertResponse:
     return AlertResponse(
         alert_id=alert.alert_id,
         rule_id=alert.rule_id,
+        source_id=alert.source_id,
         title=alert.title,
         severity=alert.severity,
         status=alert.status,

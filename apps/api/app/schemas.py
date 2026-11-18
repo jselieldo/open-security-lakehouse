@@ -174,6 +174,7 @@ class DetectionRunResponse(BaseModel):
 class AlertResponse(BaseModel):
     alert_id: str
     rule_id: str
+    source_id: str | None = None
     title: str
     severity: str
     status: str

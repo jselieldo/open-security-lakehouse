@@ -38,6 +38,14 @@ observed entries and `waiting`, `active`, `silent`, or `disabled` states.
 `last_received_at` is updated only after a completed batch. Existing pre-migration
 batches are not backfilled into the catalog.
 
+The detection worker checks configured sources every five minutes by default
+(`SOURCE_HEALTH_CHECK_MINUTES`). After `expected_interval_minutes` elapses without a completed
+batch, it creates a deduplicated high-severity `source-silence` alert and stores an immutable
+operational snapshot under `artifacts/source-health/`. A source that has never sent data gets
+the same grace period starting at registration. When ingestion resumes, the active silence
+alert is resolved automatically with a system-authored history entry. A later silence episode
+uses the new `last_received_at` value and can create a new alert.
+
 # Operational meaning of source status
 
 For event-driven sources, `silent` means that no matching telemetry arrived within the
