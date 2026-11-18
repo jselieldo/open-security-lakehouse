@@ -30,6 +30,19 @@ def test_client_rotation_is_scoped_verified_and_recoverable() -> None:
     assert 'install -m 0600 "$staging/client.key"' in script
 
 
+def test_certificate_monitor_validates_inventory_and_emits_security_event() -> None:
+    monitor = (ROOT / "scripts" / "check-mtls-certificates.py").read_text()
+    installer = (ROOT / "scripts" / "install-homelab-autocollection.sh").read_text()
+    assert '"homelab": ("clients/homelab/client.crt", "CN=homelab-client")' in monitor
+    assert '"windows": ("clients/windows/client.crt", "CN=windows-client")' in monitor
+    assert '"-checkend"' in monitor
+    assert "unexpected certificates" in monitor
+    assert '"authpriv.err"' in monitor
+    assert "osl-certificate-monitor.timer" in installer
+    assert "OnCalendar=daily" in installer
+    assert "--warning-days 30 --emit-syslog" in installer
+
+
 def test_linux_forwarder_requires_named_mtls_peer_and_durable_queue() -> None:
     config = (ROOT / "infrastructure" / "rsyslog" / "60-osl.conf").read_text()
     assert 'port="6514"' in config

@@ -44,6 +44,23 @@ validate each collector before rotating the next one. After both replacements ar
 in raw event `tls_client` metadata, securely remove the retired private keys; keeping them
 allows the retired identities to reconnect until the CA is replaced or revocation is added.
 
+Run the inventory check on demand with:
+
+```bash
+./scripts/check-mtls-certificates.py --root data/mtls --warning-days 30
+```
+
+The homelab installer provisions a persistent daily systemd timer for the same check. It
+validates the trust chain, exact subjects, expiry threshold, fingerprints, serial numbers and
+the set of expected certificate files. A failure emits an `authpriv.err` event tagged
+`osl-certificates`, which enters the lake through the existing Linux collector and matches the
+high-severity detection rule. The report never reads or prints private-key material.
+
+Vector 0.61.0 validates certificate chains and expiry but its syslog TLS configuration has no
+explicit CRL option. Emergency revocation therefore requires rotating the collector CA,
+deploying the new server trust first, replacing every authorized client, and then removing the
+old CA. Do not assume deleting a certificate file revokes copies stored in encrypted backups.
+
 Linux and Windows were both observed after collector and server restarts with certificate
 metadata retained in their raw events. The transitional TCP 5514 listener has therefore been
 removed. Confirm TCP 6514 after future upgrades and treat any reintroduction of plaintext

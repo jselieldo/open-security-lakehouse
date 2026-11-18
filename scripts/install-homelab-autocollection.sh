@@ -7,6 +7,9 @@ certificate_source="data/mtls/clients/homelab"
 certificate_target="/etc/rsyslog.d/osl-mtls"
 collector_host="${OSL_SYSLOG_HOST:-$(hostname -I | awk '{print $1}')}"
 required_rsyslog_gnutls="8.2512.0-1ubuntu4.2"
+repository="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+certificate_monitor="/etc/systemd/system/osl-certificate-monitor.service"
+certificate_timer="/etc/systemd/system/osl-certificate-monitor.timer"
 
 test -f "$source_file"
 test -n "$collector_host"
@@ -30,5 +33,29 @@ sudo install -o root -g syslog -m 0640 "$certificate_source/client.key" "$certif
 sudo rsyslogd -N1
 sudo systemctl restart rsyslog
 sudo systemctl is-active --quiet rsyslog
+sudo tee "$certificate_monitor" >/dev/null <<EOF
+[Unit]
+Description=Validate Open Security Lakehouse mTLS certificates
+
+[Service]
+Type=oneshot
+WorkingDirectory=$repository
+ExecStart=/usr/bin/python3 $repository/scripts/check-mtls-certificates.py --root $repository/data/mtls --warning-days 30 --emit-syslog
+EOF
+sudo tee "$certificate_timer" >/dev/null <<'EOF'
+[Unit]
+Description=Daily Open Security Lakehouse mTLS certificate validation
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now osl-certificate-monitor.timer
+sudo systemctl start osl-certificate-monitor.service
 logger -p authpriv.warning -t osl-homelab "OSL homelab autocollection validation"
-echo "Homelab autocollection installed and validation event emitted."
+echo "Homelab autocollection and certificate monitor installed; validation event emitted."
