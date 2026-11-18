@@ -41,6 +41,13 @@ def test_compose_exposes_parallel_mtls_listener_with_private_keys_read_only() ->
     assert "./data/mtls/ca/ca.crt:/etc/osl/mtls/ca.crt:ro" in compose
 
 
+def test_seaweed_volume_capacity_is_configurable_with_safe_homelab_default() -> None:
+    compose = (ROOT / "compose.yaml").read_text()
+    example_env = (ROOT / ".env.example").read_text()
+    assert "-max=${SEAWEED_VOLUME_MAX:-64}" in compose
+    assert "SEAWEED_VOLUME_MAX=64" in example_env
+
+
 def test_encrypted_backup_includes_collector_authority() -> None:
     backup = (ROOT / "scripts" / "backup.sh").read_text()
     assert 'tar -C data/mtls -cf "$stage/mtls.tar" .' in backup

@@ -216,7 +216,7 @@ services:
   seaweed-volume:
     image: chrislusf/seaweedfs:3.80
     restart: unless-stopped
-    command: "volume -mserver=seaweed-master:9333 -ip=seaweed-volume -dir=/data -max=8"
+    command: "volume -mserver=seaweed-master:9333 -ip=seaweed-volume -dir=/data -max=${SEAWEED_VOLUME_MAX:-64}"
     depends_on:
       seaweed-master:
         condition: service_healthy

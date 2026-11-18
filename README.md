@@ -52,6 +52,8 @@ docker compose ps
 
 The API and Keycloak are exposed on loopback at `http://127.0.0.1:8000` and `http://127.0.0.1:8080`. PostgreSQL and SeaweedFS remain private.
 
+The single-host SeaweedFS volume server permits up to 64 one-GiB volumes by default (`SEAWEED_VOLUME_MAX`). Monitor host free space and increase this setting deliberately as retention grows. If ingestion reports `No writable volumes and no free volumes left` while the host still has free space, raise this limit and recreate only the `seaweed-volume` service; existing named-volume data is preserved.
+
 ## Validate the installation
 
 ```bash
