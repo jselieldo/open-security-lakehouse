@@ -61,6 +61,42 @@ explicit CRL option. Emergency revocation therefore requires rotating the collec
 deploying the new server trust first, replacing every authorized client, and then removing the
 old CA. Do not assume deleting a certificate file revokes copies stored in encrypted backups.
 
+## Full CA rotation and emergency revocation
+
+Prepare, but do not activate, a complete candidate hierarchy:
+
+```bash
+OSL_MTLS_SERVER_IP=192.168.3.120 ./scripts/prepare-mtls-ca-rotation.sh
+```
+
+The command writes only under the ignored `data/mtls-rotation/<UTC timestamp>` directory. It
+generates a new CA, server and client keys, plus `trust/ca-bundle.crt` containing the active and
+candidate public CAs. It verifies current and candidate leaves against that bundle and records
+certificate checksums. Private keys are deliberately excluded from the checksum manifest.
+
+Use this order during an approved maintenance window:
+
+1. Create and verify an encrypted OSL backup. Record the candidate path and fingerprints.
+2. Save a root-only rollback copy of the active `data/mtls` directory outside the candidate.
+3. Deploy only `trust/ca-bundle.crt` as the server's client trust, then recreate Vector. The
+   active server certificate and both old clients remain unchanged; validate both sources.
+4. For each client separately, install its candidate `client.crt`, `client.key`, and bundled
+   `ca.crt`. Validate its new subject in stored `tls_client` metadata before continuing.
+5. Replace the Vector server certificate and key with the candidate pair while keeping the
+   dual-CA bundle. Recreate Vector and verify Linux and Windows reconnect.
+6. Promote the candidate CA certificate and key, replace every client `ca.crt` with the new CA
+   alone, and replace the server trust bundle with the new CA alone. Recreate/restart each
+   component and run the inventory check.
+7. Remove the old CA private key and rollback copies only after a new encrypted backup passes
+   checksum validation. Protect or expire older backups because they may still contain it.
+
+Rollback before step 6 by restoring the saved active directory, reinstalling both client files,
+and recreating Vector. After the old CA is removed in step 6, rollback would re-authorize the
+revoked CA and must be treated as an explicit security exception.
+
+Never promote the candidate directory with a recursive copy. Copy the named certificate and key
+files for the current phase so the dual-trust boundary remains visible and reviewable.
+
 Linux and Windows were both observed after collector and server restarts with certificate
 metadata retained in their raw events. The transitional TCP 5514 listener has therefore been
 removed. Confirm TCP 6514 after future upgrades and treat any reintroduction of plaintext

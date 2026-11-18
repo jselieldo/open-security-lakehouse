@@ -37,10 +37,24 @@ def test_certificate_monitor_validates_inventory_and_emits_security_event() -> N
     assert '"windows": ("clients/windows/client.crt", "CN=windows-client")' in monitor
     assert '"-checkend"' in monitor
     assert "unexpected certificates" in monitor
+    assert '"trust/ca-bundle.crt"' in monitor
     assert '"authpriv.err"' in monitor
     assert "osl-certificate-monitor.timer" in installer
     assert "OnCalendar=daily" in installer
     assert "--warning-days 30 --emit-syslog" in installer
+
+
+def test_ca_rotation_prepares_dual_trust_without_touching_active_material() -> None:
+    script = (ROOT / "scripts" / "prepare-mtls-ca-rotation.sh").read_text()
+    assert 'candidate="${OSL_MTLS_ROTATION_DIR:' in script
+    assert 'test ! -e "$candidate"' in script
+    assert "rsa_keygen_bits:3072" in script
+    assert 'cat "$current/ca/ca.crt" "$candidate/ca/ca.crt"' in script
+    assert '"$candidate/trust/ca-bundle.crt"' in script
+    assert '"$current/server/server.crt"' in script
+    assert '"$candidate/server/server.crt"' in script
+    assert "No active certificate or service was changed." in script
+    assert "CERTIFICATE-SHA256SUMS" in script
 
 
 def test_linux_forwarder_requires_named_mtls_peer_and_durable_queue() -> None:

@@ -20,6 +20,7 @@ ALLOWED_CERTIFICATES = {
     "clients/homelab/client.crt",
     "clients/windows/ca.crt",
     "clients/windows/client.crt",
+    "trust/ca-bundle.crt",
 }
 
 
