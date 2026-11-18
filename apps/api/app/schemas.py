@@ -65,6 +65,13 @@ class InvestigationRequest(BaseModel):
     application: str | None = Field(default=None, min_length=1, max_length=200)
     event_type: str | None = Field(default=None, min_length=1, max_length=100)
     event_types: list[str] = Field(default_factory=list, max_length=50)
+    windows_event_id: int | None = Field(default=None, ge=0, le=4_294_967_295)
+    windows_channel: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9 ./_-]*$",
+    )
     exclude_sources: list[str] = Field(default_factory=list, max_length=20)
     message_contains: str | None = Field(default=None, min_length=1, max_length=500)
     start_time: datetime | None = None
@@ -87,6 +94,13 @@ class InvestigationRequest(BaseModel):
         if any(not value or len(value) > 100 for value in values):
             raise ValueError("event types must contain 1 to 100 characters")
         return list(dict.fromkeys(values))
+
+    @field_validator("windows_channel")
+    @classmethod
+    def normalize_windows_channel(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip().lower().replace(" ", "_")
 
     @field_validator("src_ip")
     @classmethod

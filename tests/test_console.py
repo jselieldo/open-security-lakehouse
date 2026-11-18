@@ -30,6 +30,11 @@ def test_investigation_console_exposes_event_details() -> None:
     assert 'id="pagination"' in html
     assert "total_count" in javascript
     assert "goToPage" in javascript
+    assert 'name="windows_channel"' in html
+    assert 'name="windows_event_id"' in html
+    assert 'name="message_contains"' in html
+    assert "eventDisplay" in javascript
+    assert "Windows Event ID" in javascript
     assert 'id="triage-controls"' in html
     assert "updateSelectedAlert" in javascript
     assert "submitAlertComment" in javascript

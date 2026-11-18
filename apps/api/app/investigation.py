@@ -126,5 +126,17 @@ def _build_filters(request: InvestigationRequest) -> tuple[str, list[object]]:
         clauses.append(f"event_type IN ({placeholders})")
         parameters.extend(request.event_types)
 
+    if request.windows_channel and request.windows_event_id is not None:
+        clauses.append("event_type = ?")
+        parameters.append(
+            f"windows.{request.windows_channel}.{request.windows_event_id}"
+        )
+    elif request.windows_channel:
+        clauses.append("starts_with(event_type, ?)")
+        parameters.append(f"windows.{request.windows_channel}.")
+    elif request.windows_event_id is not None:
+        clauses.append("starts_with(event_type, 'windows.') AND ends_with(event_type, ?)")
+        parameters.append(f".{request.windows_event_id}")
+
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     return where, parameters

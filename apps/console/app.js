@@ -32,6 +32,27 @@ function parseRawEvent(item) {
   catch { return { message: item.raw_event_json || "" }; }
 }
 
+function eventDisplay(item) {
+  const raw = parseRawEvent(item);
+  const windows = raw.windows && typeof raw.windows === "object" ? raw.windows : {};
+  const syslog = raw.syslog && typeof raw.syslog === "object" ? raw.syslog : raw;
+  const typeParts = String(item.event_type || "").split(".");
+  const isWindows = typeParts[0] === "windows";
+  return {
+    raw,
+    windows,
+    isWindows,
+    eventCode: windows.event_id ?? (isWindows ? typeParts.at(-1) : item.event_id),
+    channel: windows.channel || (isWindows ? typeParts.slice(1, -1).join(".").replaceAll("_", " ") : item.source),
+    provider: windows.provider_name || item.application || raw.application || syslog.appname || syslog.application || "—",
+    hostname: windows.computer || item.hostname || raw.hostname || syslog.hostname || "—",
+    recordId: windows.record_id ?? "—",
+    level: windows.level || "—",
+    message: raw.message || windows.message || syslog.message || "Mensagem não informada",
+    facility: syslog.facility || syslog.facility_name || "—",
+  };
+}
+
 function showNotice(message) {
   const notice = $("#notice");
   notice.textContent = message;
@@ -122,7 +143,7 @@ async function runSearch(event) {
   const payload = {};
   for (const [key, value] of form.entries()) {
     if (!value) continue;
-    if (["limit", "min_severity"].includes(key)) payload[key] = Number(value);
+    if (["limit", "min_severity", "windows_event_id"].includes(key)) payload[key] = Number(value);
     else if (["start_time", "end_time"].includes(key)) payload[key] = new Date(value).toISOString();
     else payload[key] = value;
   }
@@ -146,7 +167,11 @@ async function executeSearch(page) {
     $("#query-meta").textContent = `${result.scanned_objects} objetos examinados · ${result.duration_ms} ms`;
     $("#result-hint").textContent = result.total_count > result.returned_count ? `Exibindo ${result.returned_count} eventos nesta página.` : "Todos os eventos correspondentes cabem nesta página.";
     $("#result-hint").classList.toggle("hidden", !result.events.length);
-    $("#events-body").innerHTML = result.events.length ? result.events.map((item, index) => `<tr class="event-row" tabindex="0" data-event-index="${index}" aria-label="Abrir detalhes do evento ${escapeHtml(item.event_id)}"><td>${formatDate(item.event_time)}</td><td><span class="event-id">${escapeHtml(item.event_id)}</span></td><td>${escapeHtml(item.source)}</td><td>${escapeHtml(item.src_ip || "—")}</td><td><span class="severity severity-${item.severity_id}">${item.severity_id} · ${escapeHtml(severityLabels[item.severity_id] || "Desconhecida")}</span></td><td class="row-arrow">›</td></tr>`).join("") : '<tr><td colspan="6" class="empty-state">Nenhum evento corresponde aos filtros.</td></tr>';
+    $("#events-body").innerHTML = result.events.length ? result.events.map((item, index) => {
+      const display = eventDisplay(item);
+      const host = item.src_ip ? `${display.hostname} · ${item.src_ip}` : display.hostname;
+      return `<tr class="event-row" tabindex="0" data-event-index="${index}" aria-label="Abrir detalhes do evento ${escapeHtml(item.event_id)}"><td>${formatDate(item.event_time)}</td><td><span class="event-code">${escapeHtml(display.eventCode)}</span><small class="cell-secondary">${escapeHtml(item.event_id)}</small></td><td>${escapeHtml(display.channel)}<small class="cell-secondary">${escapeHtml(item.source)}</small></td><td>${escapeHtml(display.provider)}</td><td>${escapeHtml(host)}</td><td><span class="severity severity-${item.severity_id}">${item.severity_id} · ${escapeHtml(severityLabels[item.severity_id] || "Desconhecida")}</span></td><td class="row-arrow">›</td></tr>`;
+    }).join("") : '<tr><td colspan="7" class="empty-state">Nenhum evento corresponde aos filtros.</td></tr>';
     $$("[data-event-index]").forEach((row) => {
       row.addEventListener("click", () => showEventDetails(Number(row.dataset.eventIndex)));
       row.addEventListener("keydown", (keyEvent) => { if (["Enter", " "].includes(keyEvent.key)) { keyEvent.preventDefault(); showEventDetails(Number(row.dataset.eventIndex)); } });
@@ -176,29 +201,28 @@ function showEventDetails(index) {
   const item = state.events[index];
   if (!item) return;
   state.selectedEvent = item;
-  const raw = parseRawEvent(item);
-  const syslog = raw.syslog || raw;
-  const application = raw.application || syslog.appname || syslog.application || "—";
-  const hostname = raw.hostname || syslog.hostname || "—";
-  const facility = syslog.facility || syslog.facility_name || "—";
-  const message = raw.message || syslog.message || "Mensagem não informada";
-  $("#event-detail-title").textContent = item.event_id;
-  $("#event-message").textContent = message;
+  const display = eventDisplay(item);
+  $("#event-detail-title").textContent = display.isWindows ? `Windows Event ID ${display.eventCode}` : item.event_id;
+  $("#event-message").textContent = display.message;
   const metadata = [
     ["Horário do evento", formatDate(item.event_time)],
     ["Horário da ingestão", formatDate(item.ingested_at)],
     ["Fonte", item.source],
     ["Tipo de evento", item.event_type || "—"],
     ["IP de origem", item.src_ip || "—"],
-    ["Aplicação", application],
-    ["Hostname", hostname],
-    ["Facility", facility],
+    ["Aplicação / provedor", display.provider],
+    ["Hostname", display.hostname],
+    ["Canal do Windows", display.isWindows ? display.channel : "—"],
+    ["Event ID do Windows", display.isWindows ? display.eventCode : "—"],
+    ["Record ID do Windows", display.isWindows ? display.recordId : "—"],
+    ["Nível original", display.isWindows ? display.level : "—"],
+    ["Facility", display.facility],
     ["Severidade", `${item.severity_id} · ${severityLabels[item.severity_id] || "Desconhecida"}`],
     ["Classe", item.class_uid ?? "—"],
     ["Esquema", `${item.schema_name || "—"} ${item.schema_version || ""}`.trim()],
   ];
   $("#event-metadata").innerHTML = metadata.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
-  $("#event-json").textContent = JSON.stringify(raw, null, 2);
+  $("#event-json").textContent = JSON.stringify(display.raw, null, 2);
   $("#investigate-event-ip").disabled = !item.src_ip;
   $("#event-details").classList.remove("hidden");
   $$("[data-event-index]").forEach((row) => row.classList.toggle("selected", Number(row.dataset.eventIndex) === index));
@@ -213,6 +237,13 @@ function searchFromSelected(mode) {
   if (mode === "similar") {
     form.elements.source.value = item.source;
     form.elements.min_severity.value = item.severity_id;
+    const display = eventDisplay(item);
+    if (display.isWindows) {
+      form.elements.windows_channel.value = display.channel;
+      form.elements.windows_event_id.value = display.eventCode;
+    } else {
+      form.elements.event_type.value = item.event_type || "";
+    }
   }
   form.requestSubmit();
   form.scrollIntoView({ behavior: "smooth", block: "start" });

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <title>OSL Console</title>
-    <link rel="stylesheet" href="./styles.css?v=20261116-5" />
+    <link rel="stylesheet" href="./styles.css?v=20261118-1" />
   </head>
   <body>
     <div class="shell">
@@ -76,8 +76,11 @@
               <label>Endereço IP<input name="src_ip" placeholder="198.51.100.42" /></label>
               <label>Fonte<input name="source" placeholder="synthetic-linux" /></label>
               <label>Hostname<input name="hostname" placeholder="homelab" /></label>
-              <label>Aplicação<input name="application" placeholder="docker" /></label>
+              <label>Aplicação / provedor<input name="application" placeholder="Microsoft-Windows-Security-Auditing" /></label>
               <label>Tipo de evento<input name="event_type" placeholder="container.die" /></label>
+              <label>Canal do Windows<input name="windows_channel" placeholder="Security" /></label>
+              <label>Event ID do Windows<input name="windows_event_id" type="number" min="0" step="1" placeholder="4625" /></label>
+              <label>Texto da mensagem<input name="message_contains" placeholder="failed password" /></label>
               <label>Severidade mínima<select name="min_severity"><option value="">Todas</option><option value="1">1 · Informativa</option><option value="2">2 · Notice</option><option value="3">3 · Warning</option><option value="4">4 · Erro</option><option value="5">5 · Crítica</option><option value="6">6 · Emergência</option></select></label>
               <label>Eventos por página<select name="limit"><option value="25">25</option><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option><option value="500">500</option></select></label>
               <label>Início<input name="start_time" type="datetime-local" /></label>
@@ -88,7 +91,7 @@
           <article class="panel results-panel">
             <div class="panel-head"><div><p class="eyebrow">RESULTADOS</p><h3 id="result-title">Aguardando consulta</h3></div><span id="query-meta" class="chip">DuckDB</span></div>
             <p id="result-hint" class="result-hint hidden"></p>
-            <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Evento</th><th>Fonte</th><th>IP de origem</th><th>Severidade</th><th><span class="sr-only">Abrir detalhes</span></th></tr></thead><tbody id="events-body"><tr><td colspan="6" class="empty-state">Use os filtros acima para pesquisar o lake.</td></tr></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Event ID / evento</th><th>Canal / fonte</th><th>Provedor / aplicação</th><th>Host / IP</th><th>Severidade</th><th><span class="sr-only">Abrir detalhes</span></th></tr></thead><tbody id="events-body"><tr><td colspan="7" class="empty-state">Use os filtros acima para pesquisar o lake.</td></tr></tbody></table></div>
             <nav id="pagination" class="pagination hidden" aria-label="Paginação dos resultados">
               <span id="page-range">—</span>
               <div>
@@ -159,6 +162,6 @@
         <div class="dialog-actions"><button value="cancel" class="button secondary">Cancelar</button><button value="default" class="button primary" id="save-token">Conectar</button></div>
       </form>
     </dialog>
-    <script src="./app.js?v=20261116-5" defer></script>
+    <script src="./app.js?v=20261118-1" defer></script>
   </body>
 </html>

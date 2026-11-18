@@ -3,8 +3,10 @@ from datetime import UTC, datetime, timedelta
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 from app.investigation import investigate
 from app.schemas import InvestigationRequest
+from pydantic import ValidationError
 
 
 def parquet_bytes(rows: list[dict]) -> bytes:
@@ -144,6 +146,34 @@ def test_investigation_filters_multiple_event_types(monkeypatch) -> None:
 def test_event_types_are_deduplicated_and_bounded() -> None:
     request = InvestigationRequest(event_types=["windows.security.4625"] * 2)
     assert request.event_types == ["windows.security.4625"]
+
+
+def test_investigation_filters_windows_channel_and_event_id(monkeypatch) -> None:
+    records = rows()
+    records[0]["event_type"] = "windows.security.4625"
+    records[1]["event_type"] = "windows.system.7045"
+    body = parquet_bytes(records)
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: ["one.parquet"])
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
+
+    by_channel = investigate(InvestigationRequest(windows_channel="Security"))
+    assert [event["event_id"] for event in by_channel.events] == ["evt-high"]
+    by_id = investigate(InvestigationRequest(windows_event_id=7045))
+    assert [event["event_id"] for event in by_id.events] == ["evt-low"]
+    exact = investigate(
+        InvestigationRequest(windows_channel="System", windows_event_id=7045)
+    )
+    assert exact.total_count == 1
+
+
+def test_windows_channel_is_normalized_and_rejects_wildcards() -> None:
+    request = InvestigationRequest(
+        windows_channel="Microsoft-Windows-PowerShell/Operational"
+    )
+    assert request.windows_channel == "microsoft-windows-powershell/operational"
+
+    with pytest.raises(ValidationError):
+        InvestigationRequest(windows_channel="Security%")
 
 
 def test_investigation_filters_message_content(monkeypatch) -> None:
