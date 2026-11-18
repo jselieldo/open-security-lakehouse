@@ -82,8 +82,12 @@ def test_repository_detection_rules_are_valid_and_unique() -> None:
     ids = [item.id for item in rules]
     assert len(ids) == len(set(ids))
     windows = [item for item in rules if item.id.startswith("windows-")]
+    docker_apps = [item for item in rules if item.id.startswith("docker-app-")]
     assert len(windows) == 6
     assert all(item.query.source == "windows-eventlog" for item in windows)
+    assert len(docker_apps) == 3
+    assert all(item.query.source == "docker-logs" for item in docker_apps)
+    assert all("test-docker-logs" not in item.query.exclude_sources for item in docker_apps)
 
 
 def test_detection_creates_alert_and_evidence(monkeypatch) -> None:

@@ -185,3 +185,26 @@ def test_investigation_filters_message_content(monkeypatch) -> None:
     result = investigate(InvestigationRequest(message_contains="Failed password"))
     assert result.total_count == 1
     assert result.events[0]["event_id"] == "evt-high"
+
+
+def test_investigation_filters_any_message_pattern(monkeypatch) -> None:
+    data = rows()
+    data[0]["raw_event_json"] = '{"message":"Unhandled exception in worker"}'
+    data[1]["raw_event_json"] = '{"message":"service healthy"}'
+    body = parquet_bytes(data)
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: ["one.parquet"])
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda _key: body)
+
+    result = investigate(
+        InvestigationRequest(message_contains_any=["traceback", "unhandled exception"])
+    )
+
+    assert [event["event_id"] for event in result.events] == ["evt-high"]
+
+
+def test_message_patterns_are_deduplicated_and_bounded() -> None:
+    request = InvestigationRequest(message_contains_any=[" panic ", "panic"])
+    assert request.message_contains_any == ["panic"]
+
+    with pytest.raises(ValidationError):
+        InvestigationRequest(message_contains_any=["x" * 201])

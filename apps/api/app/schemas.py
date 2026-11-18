@@ -74,6 +74,7 @@ class InvestigationRequest(BaseModel):
     )
     exclude_sources: list[str] = Field(default_factory=list, max_length=20)
     message_contains: str | None = Field(default=None, min_length=1, max_length=500)
+    message_contains_any: list[str] = Field(default_factory=list, max_length=20)
     start_time: datetime | None = None
     end_time: datetime | None = None
     min_severity: int | None = Field(default=None, ge=0, le=6)
@@ -94,6 +95,14 @@ class InvestigationRequest(BaseModel):
         if any(not value or len(value) > 100 for value in values):
             raise ValueError("event types must contain 1 to 100 characters")
         return list(dict.fromkeys(values))
+
+    @field_validator("message_contains_any")
+    @classmethod
+    def validate_message_patterns(cls, values: list[str]) -> list[str]:
+        cleaned = [value.strip() for value in values]
+        if any(not value or len(value) > 200 for value in cleaned):
+            raise ValueError("message patterns must contain 1 to 200 characters")
+        return list(dict.fromkeys(cleaned))
 
     @field_validator("windows_channel")
     @classmethod

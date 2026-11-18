@@ -1,0 +1,20 @@
+id: docker-app-exceptions
+title: Repeated application exceptions or fatal errors
+description: Detects repeated unhandled exceptions, panics and fatal errors in Docker applications.
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 3
+lookback_minutes: 10
+query:
+  source: docker-logs
+  event_types:
+    - container.log.stdout
+    - container.log.stderr
+  message_contains_any:
+    - unhandled exception
+    - traceback
+    - panic
+    - fatal error
+    - unhandled rejection
+  limit: 1000

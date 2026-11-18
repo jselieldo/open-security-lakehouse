@@ -81,3 +81,13 @@ systemctl status osl-docker-log-collector.service
 
 In the console, investigate with `Fonte = docker-logs`, application equal to the container
 name, and event type `container.log.stdout` or `container.log.stderr`.
+
+Three enabled detection rules evaluate this source every five minutes:
+
+- `docker-app-auth-failures`: five authentication denials in ten minutes;
+- `docker-app-exceptions`: three unhandled exceptions or fatal failures in ten minutes;
+- `docker-app-stderr-burst`: ten stderr messages in five minutes.
+
+These are generic text detections. Review real application vocabulary and tune thresholds
+before treating them as production-grade controls. Test traffic remains isolated under
+`test-docker-logs` and is not queried by these rules.

@@ -1,0 +1,20 @@
+id: docker-app-auth-failures
+title: Repeated application authentication failures
+description: Detects repeated authentication denials reported by Docker applications.
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 5
+lookback_minutes: 10
+query:
+  source: docker-logs
+  event_types:
+    - container.log.stdout
+    - container.log.stderr
+  message_contains_any:
+    - authentication failed
+    - login failed
+    - invalid password
+    - unauthorized
+    - access denied
+  limit: 1000

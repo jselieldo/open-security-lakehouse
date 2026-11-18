@@ -176,6 +176,12 @@ def _build_filters(request: InvestigationRequest) -> tuple[str, list[object]]:
         clauses.append(f"event_type IN ({placeholders})")
         parameters.extend(request.event_types)
 
+    if request.message_contains_any:
+        clauses.append(
+            "(" + " OR ".join("raw_event_json ILIKE ?" for _ in request.message_contains_any) + ")"
+        )
+        parameters.extend(f"%{pattern}%" for pattern in request.message_contains_any)
+
     if request.windows_channel and request.windows_event_id is not None:
         clauses.append("event_type = ?")
         parameters.append(

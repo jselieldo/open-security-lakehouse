@@ -1,0 +1,12 @@
+id: docker-app-stderr-burst
+title: Docker application stderr burst
+description: Detects ten or more stderr messages from Docker applications within five minutes.
+severity: medium
+enabled: true
+schedule_minutes: 5
+threshold: 10
+lookback_minutes: 5
+query:
+  source: docker-logs
+  event_type: container.log.stderr
+  limit: 1000
