@@ -26,6 +26,6 @@ def test_windows_installer_uses_least_privilege_service_account() -> None:
     assert "$expectedVersion = '0.61.0'" in installer
     assert "S-1-5-19" in installer
     assert "S-1-5-32-573" in installer
-    assert "NT AUTHORITY\\LOCAL SERVICE" in installer
+    assert "-UserId $localServiceSid" in installer
     assert "-RunLevel Limited" in installer
     assert "NT AUTHORITY\\SYSTEM" not in installer

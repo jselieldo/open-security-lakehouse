@@ -57,7 +57,7 @@ if ($LASTEXITCODE -ne 0) {
 $action = New-ScheduledTaskAction -Execute $vectorExe -Argument "--config `"$targetConfig`""
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal `
-    -UserId 'NT AUTHORITY\LOCAL SERVICE' `
+    -UserId $localServiceSid `
     -LogonType ServiceAccount `
     -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet `
