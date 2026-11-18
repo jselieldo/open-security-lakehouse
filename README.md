@@ -292,5 +292,23 @@ See [architecture overview](docs/architecture/overview.md), [ADR 0001](docs/adr/
 
 ## Next milestone
 
-The next increment should address lake retention, compaction and query performance.
+### Compact normalized lake partitions
+
+Preview completed daily partitions containing many small Parquet objects:
+
+```bash
+./scripts/compact-lake.sh plan
+```
+
+After confirming a current encrypted backup, apply non-destructive compaction:
+
+```bash
+./scripts/compact-lake.sh apply
+```
+
+Original normalized batches and raw evidence remain preserved. Investigation switches to a
+compacted partition only after its output is verified and its completion manifest is written.
+See [the lake compaction runbook](docs/runbooks/lake-compaction.md).
+
+The next increment should address lake retention and collection of Docker application logs.
 Firewall/router and application parsers remain pending real sanitized samples.

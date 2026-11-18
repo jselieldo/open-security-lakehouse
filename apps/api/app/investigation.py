@@ -30,7 +30,7 @@ EMPTY_COLUMNS = {
 def investigate(request: InvestigationRequest) -> InvestigationResponse:
     started = perf_counter()
     prefix = f"normalized/source={request.source}/" if request.source else "normalized/"
-    keys = [key for key in list_object_keys(prefix) if key.endswith(".parquet")]
+    keys = _select_query_objects(list_object_keys(prefix))
     table = _load_tables(keys)
     sql, parameters = _build_query(request)
     count_sql, count_parameters = _build_count_query(request)
@@ -53,6 +53,29 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
         duration_ms=duration_ms,
         events=events,
     )
+
+
+def _select_query_objects(keys: list[str]) -> list[str]:
+    """Prefer completed compacted partitions while preserving legacy layouts."""
+    parquet_by_partition: dict[str, list[str]] = {}
+    completed_partitions = {
+        key.rsplit("/", 1)[0]
+        for key in keys
+        if key.endswith("/_compaction.json")
+    }
+    for key in keys:
+        if not key.endswith(".parquet"):
+            continue
+        parquet_by_partition.setdefault(key.rsplit("/", 1)[0], []).append(key)
+
+    selected: list[str] = []
+    for partition, objects in parquet_by_partition.items():
+        compacted = [key for key in objects if "/compact=" in key]
+        if partition in completed_partitions and compacted:
+            selected.extend(compacted)
+        else:
+            selected.extend(key for key in objects if "/compact=" not in key)
+    return sorted(selected)
 
 
 def _load_tables(keys: list[str]) -> pa.Table:
