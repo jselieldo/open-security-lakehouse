@@ -52,6 +52,10 @@ edition is skipped without weakening the other subscriptions.
 Server-side Vector flushes a batch after 100 events or two seconds, whichever
 comes first. Do not reduce this to one event per request: doing so creates one raw
 and one normalized object for every record and degrades investigation performance.
+Linux, Windows and validation events use separate routes and disk buffers so a
+batch can never mix source identities. Installations upgraded from the original
+single sink may retain an unreferenced `osl_api` buffer directory; keep it for
+forensic review until a deliberate recovery or retention decision is made.
 
 ## Register and verify the source
 

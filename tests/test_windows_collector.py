@@ -32,7 +32,7 @@ def test_server_vector_batches_events_before_object_storage() -> None:
             "__COLLECTOR_API_TOKEN__", "x" * 32
         )
     )
-    assert config["sinks"]["osl_api"]["batch"]["max_events"] == 1
+    assert "osl_api" not in config["sinks"]
     for sink_id in ("osl_api_windows", "osl_api_linux", "osl_api_test"):
         assert config["sinks"][sink_id]["batch"]["max_events"] == 100
         assert config["sinks"][sink_id]["batch"]["timeout_secs"] == 2
