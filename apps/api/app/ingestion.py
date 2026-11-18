@@ -369,7 +369,7 @@ def _windows_syslog_event(event: dict[str, Any], index: int) -> dict[str, Any]:
     rendered_message = raw_windows.get("message")
     if not isinstance(rendered_message, str) or not rendered_message:
         rendered_message = f"Windows event {windows_event_id or 'unknown'} from {provider}"
-    return {
+    result: dict[str, Any] = {
         "event_id": f"windows-{sha256(identity.encode()).hexdigest()[:32]}",
         "event_time": timestamp,
         "severity_id": severity_id,
@@ -383,3 +383,7 @@ def _windows_syslog_event(event: dict[str, Any], index: int) -> dict[str, Any]:
         "message": rendered_message,
         "windows": raw_windows or {"syslog": event},
     }
+    tls_client = event.get("tls_client")
+    if isinstance(tls_client, dict):
+        result["tls_client"] = tls_client
+    return result

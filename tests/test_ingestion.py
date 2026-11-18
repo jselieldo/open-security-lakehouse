@@ -194,6 +194,7 @@ def test_vector_windows_event_is_normalized_and_idempotent() -> None:
             "message": json.dumps(windows),
             "osl_source": "windows-eventlog",
             "timestamp": "2026-11-17T12:00:00Z",
+            "tls_client": {"subject": "CN=windows-client,O=Open Security Lakehouse"},
         }
     ).encode()
     first = vector_events_to_request(body)
@@ -206,6 +207,9 @@ def test_vector_windows_event_is_normalized_and_idempotent() -> None:
     assert first.events[0]["application"] == "Microsoft-Windows-Security-Auditing"
     assert first.events[0]["event_type"] == "windows.security.4625"
     assert first.events[0]["windows"] == windows
+    assert first.events[0]["tls_client"] == {
+        "subject": "CN=windows-client,O=Open Security Lakehouse"
+    }
 
     preceding = json.loads(body)
     preceding["message"] = json.dumps({**windows, "record_id": 1233})
