@@ -58,11 +58,6 @@ METRICS_REFRESH_FAILURES = Counter(
     "osl_metrics_refresh_failures_total",
     "Failures while refreshing storage metrics",
 )
-SOURCE_SILENT = Gauge(
-    "osl_source_silent",
-    "Whether a configured source exceeded its expected silence interval",
-    ["source_id", "source"],
-)
 
 
 def render_metrics(storage_stats: dict[str, tuple[int, int]] | None = None) -> bytes:

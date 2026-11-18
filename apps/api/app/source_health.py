@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .database import Alert, AlertHistory, SourceCatalog
-from .metrics import SOURCE_SILENT
 from .notifications import notify_new_alert
 from .storage import put_object
 
@@ -29,9 +28,6 @@ def check_source_health(db: Session, now: datetime | None = None) -> dict[str, i
             reference = reference.replace(tzinfo=UTC)
         silent = source.enabled and now - reference > timedelta(
             minutes=source.expected_interval_minutes
-        )
-        SOURCE_SILENT.labels(source_id=source.source_id, source=source.source).set(
-            1 if silent else 0
         )
         if silent:
             if _create_silence_alert(source, reference, now, db):
