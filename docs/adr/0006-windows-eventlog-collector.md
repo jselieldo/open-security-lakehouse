@@ -27,9 +27,8 @@ telemetry remains in S3-compatible object storage.
 - Windows collection receives the same retry, disk-buffer and idempotency
   behavior as the Linux path.
 - The Windows Security channel needs explicit local permission.
-- TCP syslog is not encrypted. The current decision is limited to the trusted
-  `192.168.3.0/24` homelab. mTLS is required before crossing an untrusted or
-  routed boundary.
+- ADR 0007 supersedes the initial trusted-LAN transport: Windows now uses
+  mutually authenticated TLS on TCP 6514 and the plaintext listener is removed.
 - The first deployment limits backlog age, event rate, field size and excludes
   raw XML to control volume and sensitive-data exposure.
 - Detection rules select exact event types through bounded structured lists

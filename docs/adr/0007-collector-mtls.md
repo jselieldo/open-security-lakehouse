@@ -11,9 +11,9 @@ certificate issued by an OSL-local CA and requires every network collector to pr
 valid client certificate from that CA. Linux and Windows receive distinct client keys.
 Certificate metadata is retained in the raw event under `tls_client`.
 
-The existing TCP 5514 listener remains temporarily available during migration. It stays
-CIDR-restricted and must be removed after both collectors have been observed on 6514. Docker
-collectors run on the same host over loopback and do not use this network trust path.
+The former TCP 5514 listener was available only during migration and has been removed after
+both collectors were observed on 6514 with certificate metadata. Docker collectors run on
+the same host over loopback and do not use this network trust path.
 
 Private keys live under the ignored `data/mtls` directory, are mounted read-only, and are
 included only in the encrypted platform backup. Certificate generation refuses to overwrite

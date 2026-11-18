@@ -102,16 +102,14 @@ cover repeated logon failures, account and group changes, service installation,
 audit-log clearing, Defender threats and encoded PowerShell commands.
 
 Follow [the Windows collector runbook](docs/runbooks/windows-eventlog.md). The
-initial transport uses CIDR-restricted TCP syslog on the trusted homelab LAN; it
-is not encrypted and must not be exposed to the Internet or used across an
-untrusted network. The API remains loopback-only and no bearer token is placed on
-the Windows host.
+collector uses mutually authenticated TLS on TCP 6514 and never receives an API
+bearer token. The API remains loopback-only.
 
 ## Collect Linux/syslog events
 
-Vector 0.61.0 accepts authenticated TLS syslog on TCP 6514 during a staged migration from
-CIDR-restricted TCP 5514. UDP is intentionally disabled because it cannot provide delivery
-feedback. See [the collector mTLS runbook](docs/runbooks/collector-mtls.md).
+Vector 0.61.0 accepts only authenticated TLS syslog on TCP 6514. The former plaintext
+TCP 5514 migration listener and UDP are disabled. See [the collector mTLS
+runbook](docs/runbooks/collector-mtls.md).
 
 For the homelab host itself, install the versioned selective forwarding policy:
 

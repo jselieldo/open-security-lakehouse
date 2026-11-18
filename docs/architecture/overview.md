@@ -27,14 +27,13 @@ FastAPI + Vector --metrics--> Prometheus --datasource--> Grafana
 - Milestone 4 keeps versioned YAML rules in Git, schedules them in the control plane, stores alert state in PostgreSQL, and writes immutable evidence to the object lake. Event fingerprints deduplicate repeated matches.
 - Milestone 5 serves a static, responsive console from FastAPI. It calls only structured authenticated APIs and stores its bearer token in browser session memory.
 - Milestone 6 uses Keycloak as the OIDC provider. FastAPI validates RS256 signatures, issuer, audience, and required claims, then enforces realm roles. First-seen user attributes and per-request audit records stay in PostgreSQL. Alembic owns schema evolution and runs before the API process.
-- Milestone 7 adds Vector as the first data-plane collector. TCP syslog is CIDR-restricted, delivery to FastAPI is retried from a durable disk buffer, and a separate ingestion-only machine token prevents the collector from acquiring control-plane read access.
+- Milestone 7 adds Vector as the first data-plane collector. Syslog is CIDR-restricted and mutually authenticated with TLS, delivery to FastAPI is retried from a durable disk buffer, and a separate ingestion-only machine token prevents the collector from acquiring control-plane read access.
 - Milestone 8 instruments the API and Vector with Prometheus metrics. Versioned rules detect availability and pipeline-quality problems, while Grafana receives a Git-provisioned datasource and operations dashboard. Both UIs remain loopback-only.
 - Milestone 10 runs scheduled detections in a dedicated worker, connects Prometheus to Alertmanager, and provides alert triage/history.
 - Milestone 11 catalogs configured and observed sources in PostgreSQL, ingests Docker lifecycle events through a host-side authenticated forwarder, and exposes source coverage and structured host/application/type filters. Raw and normalized telemetry remain in object storage. Vendor parsers and independently authenticated host collectors are not yet provided.
 - The first Windows increment uses pinned Vector 0.61.0 on the workstation. It
   preserves native event fields, checkpoints locally, and enters through the
-  CIDR-restricted TCP syslog listener. This trusted-LAN transport must be
-  replaced by mTLS before collection crosses an untrusted network.
+  CIDR-restricted, mutually authenticated TLS syslog listener on TCP 6514.
 
 ## Intended object layout
 

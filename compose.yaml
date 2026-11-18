@@ -98,7 +98,6 @@ services:
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     command: ["--config", "/tmp/vector.toml"]
     ports:
-      - "${SYSLOG_BIND_ADDRESS:-0.0.0.0}:${SYSLOG_PORT:-5514}:5514/tcp"
       - "${SYSLOG_MTLS_BIND_ADDRESS:-0.0.0.0}:${SYSLOG_MTLS_PORT:-6514}:6514/tcp"
     depends_on:
       api:

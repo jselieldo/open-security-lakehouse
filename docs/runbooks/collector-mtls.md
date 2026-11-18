@@ -30,10 +30,10 @@ Copy only `data/mtls/clients/windows/{ca.crt,client.crt,client.key}` to the same
 in the Windows checkout, then rerun the elevated Windows collector installer. Never transfer
 the CA private key or another client's private key.
 
-Confirm events from both hostnames continue to arrive and inspect Vector metrics for TLS or
-discard errors. Keep TCP 5514 during this observation period. Remove its Compose port and the
-`linux_syslog` source only after both clients have remained healthy through a restart and a
-certificate-backed smoke test.
+Linux and Windows were both observed after collector and server restarts with certificate
+metadata retained in their raw events. The transitional TCP 5514 listener has therefore been
+removed. Confirm TCP 6514 after future upgrades and treat any reintroduction of plaintext
+syslog as a security regression.
 
 Backups created after mTLS activation contain `mtls.tar` inside the encrypted archive. Treat
 that archive and its encryption key as sufficient to impersonate every collector.

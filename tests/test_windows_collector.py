@@ -43,10 +43,9 @@ def test_server_vector_batches_events_before_object_storage() -> None:
     assert mtls["tls"]["enabled"] is True
     assert mtls["tls"]["verify_certificate"] is True
     assert mtls["tls"]["client_metadata_key"] == "tls_client"
-    assert config["transforms"]["tag_source"]["inputs"] == [
-        "linux_syslog",
-        "syslog_mtls",
-    ]
+    assert config["transforms"]["tag_source"]["inputs"] == ["syslog_mtls"]
+    assert "linux_syslog" not in config["sources"]
+    assert "5514" not in (ROOT / "compose.yaml").read_text(encoding="utf-8")
     assert "osl_api" not in config["sinks"]
     for sink_id in ("osl_api_windows", "osl_api_linux", "osl_api_test"):
         assert config["sinks"][sink_id]["batch"]["max_events"] == 100
