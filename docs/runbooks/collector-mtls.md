@@ -21,9 +21,11 @@ sudo apt-get install rsyslog-gnutls=8.2512.0-1ubuntu4.2
 ./scripts/install-homelab-autocollection.sh
 ```
 
-The installer leaves `/etc/osl` non-listable (`0711`) and makes only the `mtls` directory
-and certificate files readable by the dedicated `syslog` group. The Docker collector
-environment remains `root:root` mode `0600`.
+The installer stores certificates under `/etc/rsyslog.d/osl-mtls`, which is already readable
+under Ubuntu's packaged AppArmor profile for rsyslog. Only `root` and the dedicated `syslog`
+group can traverse that subdirectory or read its certificate files. The Docker collector
+environment under `/etc/osl` remains `root:root` mode `0600`; the AppArmor profile is not
+weakened or locally overridden.
 Copy only `data/mtls/clients/windows/{ca.crt,client.crt,client.key}` to the same ignored path
 in the Windows checkout, then rerun the elevated Windows collector installer. Never transfer
 the CA private key or another client's private key.

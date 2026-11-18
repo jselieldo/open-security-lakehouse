@@ -26,10 +26,12 @@ def test_linux_forwarder_requires_named_mtls_peer_and_durable_queue() -> None:
     installer = (ROOT / "scripts" / "install-homelab-autocollection.sh").read_text()
     assert 'required_rsyslog_gnutls="8.2512.0-1ubuntu4.2"' in installer
     assert "dpkg-query" in installer
-    assert "chmod 0711 /etc/osl" in installer
+    assert 'certificate_target="/etc/rsyslog.d/osl-mtls"' in installer
+    assert "chmod 0711 /etc/osl" not in installer
     assert "-g syslog -m 0750" in installer
     assert "-g syslog -m 0640" in installer
     assert "-m 0660" not in installer
+    assert "/etc/rsyslog.d/osl-mtls/client.key" in config
 
 
 def test_compose_exposes_parallel_mtls_listener_with_private_keys_read_only() -> None:
