@@ -14,7 +14,12 @@ set -a; . ./.env; set +a
 ./scripts/mtls-smoke-test.sh
 ```
 
-Install the homelab rsyslog client with `./scripts/install-homelab-autocollection.sh`.
+Install the pinned Ubuntu TLS driver and then the homelab rsyslog client:
+
+```bash
+sudo apt-get install rsyslog-gnutls=8.2512.0-1ubuntu4.2
+./scripts/install-homelab-autocollection.sh
+```
 Copy only `data/mtls/clients/windows/{ca.crt,client.crt,client.key}` to the same ignored path
 in the Windows checkout, then rerun the elevated Windows collector installer. Never transfer
 the CA private key or another client's private key.

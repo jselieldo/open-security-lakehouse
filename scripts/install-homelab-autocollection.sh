@@ -6,9 +6,16 @@ target_file="/etc/rsyslog.d/60-osl.conf"
 certificate_source="data/mtls/clients/homelab"
 certificate_target="/etc/osl/mtls"
 collector_host="${OSL_SYSLOG_HOST:-$(hostname -I | awk '{print $1}')}"
+required_rsyslog_gnutls="8.2512.0-1ubuntu4.2"
 
 test -f "$source_file"
 test -n "$collector_host"
+installed_rsyslog_gnutls="$(dpkg-query -W -f='${Version}' rsyslog-gnutls 2>/dev/null || true)"
+test "$installed_rsyslog_gnutls" = "$required_rsyslog_gnutls" || {
+  echo "Install the pinned TLS driver first:" >&2
+  echo "  sudo apt-get install rsyslog-gnutls=$required_rsyslog_gnutls" >&2
+  exit 1
+}
 for file in ca.crt client.crt client.key; do test -f "$certificate_source/$file"; done
 temporary_file="$(mktemp)"
 trap 'rm -f "$temporary_file"' EXIT

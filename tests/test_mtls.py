@@ -23,6 +23,9 @@ def test_linux_forwarder_requires_named_mtls_peer_and_durable_queue() -> None:
     assert 'StreamDriverAuthMode="x509/name"' in config
     assert 'StreamDriverPermittedPeers="osl-syslog"' in config
     assert 'queue.saveOnShutdown="on"' in config
+    installer = (ROOT / "scripts" / "install-homelab-autocollection.sh").read_text()
+    assert 'required_rsyslog_gnutls="8.2512.0-1ubuntu4.2"' in installer
+    assert "dpkg-query" in installer
 
 
 def test_compose_exposes_parallel_mtls_listener_with_private_keys_read_only() -> None:

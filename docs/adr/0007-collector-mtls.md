@@ -20,6 +20,11 @@ included only in the encrypted platform backup. Certificate generation refuses t
 an existing authority. Rotation creates a new authority or a deliberately signed replacement;
 it is never performed implicitly during deployment.
 
+The native Ubuntu sender uses `rsyslog-gnutls` pinned to `8.2512.0-1ubuntu4.2`, matching the
+installed rsyslog core. Its upstream licensing is GPL-3.0+/Apache-2.0 (with LGPL-3.0+ and
+BSD-3-Clause components). The package is installed explicitly by the operator; the collector
+installer validates the exact version and does not mutate system packages.
+
 ## Consequences
 
 Possession of a shared bearer token is no longer sufficient to inject network syslog. A
