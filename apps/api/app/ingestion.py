@@ -230,6 +230,9 @@ def docker_logs_to_request(body: bytes) -> IngestionRequest:
     raw_logs = _parse_vector_body(body)
     if len(raw_logs) > get_settings().max_batch_events:
         raise BatchTooLargeError(get_settings().max_batch_events)
+    test_flags = {raw.get("osl_test") is True for raw in raw_logs}
+    if len(test_flags) != 1:
+        raise ValueError("Docker log batch cannot mix test and operational events")
     events: list[dict[str, Any]] = []
     for raw in raw_logs:
         timestamp = raw.get("timestamp")
@@ -275,7 +278,7 @@ def docker_logs_to_request(body: bytes) -> IngestionRequest:
     digest = sha256(canonical_batch.encode()).hexdigest()
     return IngestionRequest(
         batch_id=f"docker-log-{digest[:32]}",
-        source="docker-logs",
+        source="test-docker-logs" if test_flags == {True} else "docker-logs",
         events=events,
     )
 

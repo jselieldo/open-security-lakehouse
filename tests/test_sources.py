@@ -80,6 +80,14 @@ def test_docker_log_adapter_batches_and_preserves_application_context() -> None:
     assert first.events[1]["event_type"] == "container.log.stderr"
     assert first.events[1]["severity_id"] == 3
     assert first.events[0]["docker_log"] == payload[0]
+    test_payload = [docker_log() | {"osl_test": True}]
+    assert docker_logs_to_request(json.dumps(test_payload).encode()).source == "test-docker-logs"
+
+
+def test_docker_log_adapter_rejects_mixed_test_batch() -> None:
+    payload = [docker_log(), docker_log() | {"osl_test": True}]
+    with pytest.raises(ValueError, match="cannot mix"):
+        docker_logs_to_request(json.dumps(payload).encode())
 
 
 @pytest.mark.parametrize(
