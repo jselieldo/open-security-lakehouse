@@ -27,9 +27,19 @@ if .appname == "osl-smoke" {
 }
 '''
 
+[transforms.route_source]
+type = "route"
+inputs = ["tag_source"]
+route.windows = '.osl_source == "windows-eventlog"'
+route.test = '.osl_source == "test-syslog"'
+route.linux = '.osl_source == "linux-syslog"'
+
+# Keep this sink ID until the pre-batching disk buffer has drained. It accepts
+# only unmatched future events and flushes old buffered records one at a time so
+# a historical mixed-source buffer cannot produce invalid API batches.
 [sinks.osl_api]
 type = "http"
-inputs = ["tag_source"]
+inputs = ["route_source._unmatched"]
 uri = "http://api:8000/api/v1/ingestion/vector"
 method = "post"
 compression = "none"
@@ -47,10 +57,94 @@ codec = "json"
 method = "newline_delimited"
 
 [sinks.osl_api.batch]
-max_events = 100
+max_events = 1
 timeout_secs = 2
 
 [sinks.osl_api.buffer]
+type = "disk"
+max_size = 268435488
+when_full = "block"
+
+[sinks.osl_api_windows]
+type = "http"
+inputs = ["route_source.windows"]
+uri = "http://api:8000/api/v1/ingestion/vector"
+method = "post"
+compression = "none"
+healthcheck.enabled = false
+acknowledgements.enabled = true
+
+[sinks.osl_api_windows.auth]
+strategy = "bearer"
+token = "__COLLECTOR_API_TOKEN__"
+
+[sinks.osl_api_windows.encoding]
+codec = "json"
+
+[sinks.osl_api_windows.framing]
+method = "newline_delimited"
+
+[sinks.osl_api_windows.batch]
+max_events = 100
+timeout_secs = 2
+
+[sinks.osl_api_windows.buffer]
+type = "disk"
+max_size = 268435488
+when_full = "block"
+
+[sinks.osl_api_linux]
+type = "http"
+inputs = ["route_source.linux"]
+uri = "http://api:8000/api/v1/ingestion/vector"
+method = "post"
+compression = "none"
+healthcheck.enabled = false
+acknowledgements.enabled = true
+
+[sinks.osl_api_linux.auth]
+strategy = "bearer"
+token = "__COLLECTOR_API_TOKEN__"
+
+[sinks.osl_api_linux.encoding]
+codec = "json"
+
+[sinks.osl_api_linux.framing]
+method = "newline_delimited"
+
+[sinks.osl_api_linux.batch]
+max_events = 100
+timeout_secs = 2
+
+[sinks.osl_api_linux.buffer]
+type = "disk"
+max_size = 268435488
+when_full = "block"
+
+[sinks.osl_api_test]
+type = "http"
+inputs = ["route_source.test"]
+uri = "http://api:8000/api/v1/ingestion/vector"
+method = "post"
+compression = "none"
+healthcheck.enabled = false
+acknowledgements.enabled = true
+
+[sinks.osl_api_test.auth]
+strategy = "bearer"
+token = "__COLLECTOR_API_TOKEN__"
+
+[sinks.osl_api_test.encoding]
+codec = "json"
+
+[sinks.osl_api_test.framing]
+method = "newline_delimited"
+
+[sinks.osl_api_test.batch]
+max_events = 100
+timeout_secs = 2
+
+[sinks.osl_api_test.buffer]
 type = "disk"
 max_size = 268435488
 when_full = "block"

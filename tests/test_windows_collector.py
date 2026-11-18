@@ -32,8 +32,14 @@ def test_server_vector_batches_events_before_object_storage() -> None:
             "__COLLECTOR_API_TOKEN__", "x" * 32
         )
     )
-    assert config["sinks"]["osl_api"]["batch"]["max_events"] == 100
-    assert config["sinks"]["osl_api"]["batch"]["timeout_secs"] == 2
+    assert config["sinks"]["osl_api"]["batch"]["max_events"] == 1
+    for sink_id in ("osl_api_windows", "osl_api_linux", "osl_api_test"):
+        assert config["sinks"][sink_id]["batch"]["max_events"] == 100
+        assert config["sinks"][sink_id]["batch"]["timeout_secs"] == 2
+        assert config["sinks"][sink_id]["buffer"]["type"] == "disk"
+    assert config["sinks"]["osl_api_windows"]["inputs"] == ["route_source.windows"]
+    assert config["sinks"]["osl_api_linux"]["inputs"] == ["route_source.linux"]
+    assert config["sinks"]["osl_api_test"]["inputs"] == ["route_source.test"]
 
 
 def test_windows_installer_uses_least_privilege_service_account() -> None:
