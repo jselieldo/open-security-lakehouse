@@ -24,6 +24,9 @@ Create and verify the compacted objects, then publish their manifests:
 The manifest is written last. Investigation continues to read original batch objects until
 that marker exists, and then reads only the compacted object for the partition. If an upload
 or verification fails, the marker is not published and queries remain on the originals.
+Events arriving after the compaction snapshot are read alongside the compacted object, so an
+operator may explicitly include the active day by passing tomorrow's UTC date to `--before`.
+The safe default still excludes the active day.
 
 Run an encrypted backup before the first production compaction and after a successful run.
 Compare a representative investigation before and after applying compaction. The command

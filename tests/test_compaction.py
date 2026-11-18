@@ -28,6 +28,7 @@ def test_plan_only_selects_completed_uncompacted_partitions() -> None:
 
     assert [plan.partition for plan in plans] == [old]
     assert plans[0].source_objects == 3
+    assert plans[0].source_keys == tuple(f"{old}/batch={index}.parquet" for index in range(3))
 
 
 def test_compaction_publishes_manifest_only_after_verified_object(monkeypatch) -> None:
@@ -45,7 +46,9 @@ def test_compaction_publishes_manifest_only_after_verified_object(monkeypatch) -
 
     monkeypatch.setattr("app.compaction.put_object", fake_put)
     result = compact_partition(
-        PartitionPlan(partition, "windows", "2026-11-16", len(source_keys))
+        PartitionPlan(
+            partition, "windows", "2026-11-16", len(source_keys), tuple(source_keys)
+        )
     )
 
     assert result["row_count"] == 2
@@ -69,7 +72,9 @@ def test_compaction_failure_does_not_publish_manifest(monkeypatch) -> None:
     monkeypatch.setattr("app.compaction.put_object", failing_put)
     with pytest.raises(OSError, match="storage unavailable"):
         compact_partition(
-            PartitionPlan(partition, "windows", "2026-11-16", len(source_keys))
+            PartitionPlan(
+                partition, "windows", "2026-11-16", len(source_keys), tuple(source_keys)
+            )
         )
     assert not any(key.endswith("_compaction.json") for key in writes)
 
@@ -79,7 +84,27 @@ def test_investigation_prefers_compact_objects_only_after_manifest() -> None:
     originals = [f"{partition}/batch={index}.parquet" for index in range(3)]
     compact = f"{partition}/compact=abc-0000.parquet"
 
+    manifest = {
+        partition: {"source_objects": originals, "compact_objects": [compact]}
+    }
     assert _select_query_objects(originals + [compact]) == originals
-    assert _select_query_objects(originals + [compact, f"{partition}/_compaction.json"]) == [
-        compact
-    ]
+    assert _select_query_objects(originals + [compact], manifest) == [compact]
+
+
+def test_investigation_includes_events_arriving_after_active_compaction() -> None:
+    partition = "normalized/source=windows/year=2026/month=11/day=18"
+    compacted_sources = [f"{partition}/batch={index}.parquet" for index in range(2)]
+    late_event = f"{partition}/batch=late.parquet"
+    compact = f"{partition}/compact=abc-0000.parquet"
+    manifest = {
+        partition: {
+            "source_objects": compacted_sources,
+            "compact_objects": [compact],
+        }
+    }
+
+    selected = _select_query_objects(
+        compacted_sources + [late_event, compact], manifest
+    )
+
+    assert selected == [late_event, compact]

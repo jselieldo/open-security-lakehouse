@@ -1,4 +1,5 @@
 import io
+import json
 from time import perf_counter
 
 import duckdb
@@ -30,7 +31,8 @@ EMPTY_COLUMNS = {
 def investigate(request: InvestigationRequest) -> InvestigationResponse:
     started = perf_counter()
     prefix = f"normalized/source={request.source}/" if request.source else "normalized/"
-    keys = _select_query_objects(list_object_keys(prefix))
+    all_keys = list_object_keys(prefix)
+    keys = _select_query_objects(all_keys, _load_compaction_manifests(all_keys))
     table = _load_tables(keys)
     sql, parameters = _build_query(request)
     count_sql, count_parameters = _build_count_query(request)
@@ -55,14 +57,26 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
     )
 
 
-def _select_query_objects(keys: list[str]) -> list[str]:
+def _load_compaction_manifests(keys: list[str]) -> dict[str, dict[str, object]]:
+    manifests: dict[str, dict[str, object]] = {}
+    for key in keys:
+        if not key.endswith("/_compaction.json"):
+            continue
+        try:
+            document = json.loads(get_object_bytes(key))
+        except (json.JSONDecodeError, OSError, ValueError):
+            continue
+        if isinstance(document, dict):
+            manifests[key.rsplit("/", 1)[0]] = document
+    return manifests
+
+
+def _select_query_objects(
+    keys: list[str], manifests: dict[str, dict[str, object]] | None = None
+) -> list[str]:
     """Prefer completed compacted partitions while preserving legacy layouts."""
+    manifests = manifests or {}
     parquet_by_partition: dict[str, list[str]] = {}
-    completed_partitions = {
-        key.rsplit("/", 1)[0]
-        for key in keys
-        if key.endswith("/_compaction.json")
-    }
     for key in keys:
         if not key.endswith(".parquet"):
             continue
@@ -70,9 +84,22 @@ def _select_query_objects(keys: list[str]) -> list[str]:
 
     selected: list[str] = []
     for partition, objects in parquet_by_partition.items():
-        compacted = [key for key in objects if "/compact=" in key]
-        if partition in completed_partitions and compacted:
-            selected.extend(compacted)
+        manifest = manifests.get(partition, {})
+        compacted = {
+            str(key) for key in manifest.get("compact_objects", []) if isinstance(key, str)
+        }
+        sources = {
+            str(key) for key in manifest.get("source_objects", []) if isinstance(key, str)
+        }
+        available = set(objects)
+        verified_compacts = compacted & available
+        if verified_compacts:
+            selected.extend(verified_compacts)
+            selected.extend(
+                key
+                for key in objects
+                if "/compact=" not in key and key not in sources
+            )
         else:
             selected.extend(key for key in objects if "/compact=" not in key)
     return sorted(selected)

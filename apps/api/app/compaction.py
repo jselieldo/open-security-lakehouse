@@ -4,7 +4,7 @@ import argparse
 import io
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
 
@@ -26,6 +26,7 @@ class PartitionPlan:
     source: str
     partition_date: str
     source_objects: int
+    source_keys: tuple[str, ...]
 
 
 def plan_compaction(
@@ -62,19 +63,16 @@ def plan_compaction(
                 source=match["source"],
                 partition_date=partition_date.isoformat(),
                 source_objects=len(objects),
+                source_keys=tuple(sorted(objects)),
             )
         )
     return plans
 
 
 def compact_partition(plan: PartitionPlan) -> dict[str, object]:
-    source_keys = sorted(
-        key
-        for key in list_object_keys(f"{plan.partition}/")
-        if "/batch=" in key and key.endswith(".parquet")
-    )
+    source_keys = list(plan.source_keys)
     if len(source_keys) != plan.source_objects:
-        raise RuntimeError("partition changed after planning; create a new plan")
+        raise RuntimeError("invalid compaction plan")
 
     tables = [pq.read_table(io.BytesIO(get_object_bytes(key))) for key in source_keys]
     table = pa.concat_tables(tables, promote_options="default")
@@ -147,7 +145,15 @@ def main() -> None:
             "before": args.before.isoformat(),
             "partitions": len(plans),
             "source_objects": sum(plan.source_objects for plan in plans),
-            "items": [asdict(plan) for plan in plans],
+            "items": [
+                {
+                    "partition": plan.partition,
+                    "source": plan.source,
+                    "partition_date": plan.partition_date,
+                    "source_objects": plan.source_objects,
+                }
+                for plan in plans
+            ],
         }
     else:
         result = apply_compaction(args.before, args.minimum_objects)
