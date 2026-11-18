@@ -33,7 +33,8 @@ openssl x509 -req -sha256 -days "$valid_days" -in "$staging/client.csr" \
   -CA "$root/ca/ca.crt" -CAkey "$root/ca/ca.key" -CAcreateserial \
   -extfile "$extension" -out "$staging/client.crt"
 openssl verify -CAfile "$root/ca/ca.crt" "$staging/client.crt"
-openssl x509 -in "$staging/client.crt" -noout -subject | grep -F "CN = $client-client"
+openssl x509 -in "$staging/client.crt" -noout -subject -nameopt RFC2253 |
+  grep -F "CN=$client-client"
 
 mkdir -p "$retired"
 install -m 0600 "$target/client.key" "$retired/client.key"

@@ -25,6 +25,7 @@ def test_client_rotation_is_scoped_verified_and_recoverable() -> None:
     assert "extendedKeyUsage=clientAuth" in script
     assert 'openssl verify -CAfile "$root/ca/ca.crt"' in script
     assert '"/CN=$client-client/O=Open Security Lakehouse"' in script
+    assert '-nameopt RFC2253' in script
     assert 'retired="$root/retired/$client-$timestamp"' in script
     assert 'install -m 0600 "$staging/client.key"' in script
 
