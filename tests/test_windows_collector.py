@@ -45,3 +45,5 @@ def test_windows_installer_uses_least_privilege_service_account() -> None:
     assert "-UserId $localServiceSid" in installer
     assert "-RunLevel Limited" in installer
     assert "NT AUTHORITY\\SYSTEM" not in installer
+    assert "Stop-ScheduledTask -TaskName $taskName" in installer
+    assert installer.index("Stop-ScheduledTask") < installer.index("Register-ScheduledTask")
