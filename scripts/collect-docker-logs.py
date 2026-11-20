@@ -115,6 +115,14 @@ def send_batches(endpoint: str, token: str, records: list[dict[str, object]]) ->
         )
         with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
             result = json.load(response)
+        if result["status"] == "quarantined":
+            print(
+                "Docker log batch quarantined: "
+                f"accepted={result.get('accepted_count', 0)} "
+                f"rejected={result.get('rejected_count', 0)}",
+                file=sys.stderr,
+            )
+            continue
         if result["status"] != "completed":
             raise RuntimeError("Docker log batch was not accepted")
 

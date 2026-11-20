@@ -1,6 +1,10 @@
 import importlib.util
+import io
+import json
 from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 
 def load_collector():
@@ -63,3 +67,34 @@ def test_default_exclusion_prevents_osl_feedback_loop(monkeypatch) -> None:
     excluded = collector.re.compile(r"^open-security-lakehouse-")
     containers = collector.list_containers(included, excluded)
     assert [item["Names"] for item in containers] == ["business-api"]
+
+
+def test_quarantined_batch_is_preserved_without_blocking_checkpoint(
+    monkeypatch, capsys
+) -> None:
+    collector = load_collector()
+    response = io.BytesIO(json.dumps({
+        "status": "quarantined",
+        "accepted_count": 0,
+        "rejected_count": 1,
+    }).encode())
+    response.__enter__ = lambda value: value
+    response.__exit__ = lambda *_args: None
+    monkeypatch.setattr(collector.urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+
+    collector.send_batches("http://127.0.0.1/ingest", "test-token", [{"message": "x"}])
+
+    assert "batch quarantined: accepted=0 rejected=1" in capsys.readouterr().err
+
+
+def test_unexpected_batch_status_still_fails(monkeypatch) -> None:
+    collector = load_collector()
+    response = io.BytesIO(json.dumps({"status": "failed"}).encode())
+    response.__enter__ = lambda value: value
+    response.__exit__ = lambda *_args: None
+    monkeypatch.setattr(collector.urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+
+    with pytest.raises(RuntimeError, match="not accepted"):
+        collector.send_batches(
+            "http://127.0.0.1/ingest", "test-token", [{"message": "x"}]
+        )
