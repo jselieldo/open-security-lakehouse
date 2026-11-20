@@ -38,3 +38,18 @@ def test_investigation_console_exposes_event_details() -> None:
     assert 'id="triage-controls"' in html
     assert "updateSelectedAlert" in javascript
     assert "submitAlertComment" in javascript
+
+
+def test_source_console_exposes_freshness_and_diagnostic_actions() -> None:
+    console = Path(__file__).parents[1] / "apps" / "console"
+    html = (console / "index.html").read_text()
+    javascript = (console / "app.js").read_text()
+    styles = (console / "styles.css").read_text()
+    assert 'id="sources-summary"' in html
+    assert "seconds_since_last_event" in javascript
+    assert "seconds_until_silent" in javascript
+    assert "active_silence_alert_id" in javascript
+    assert "sourceGuidance" in javascript
+    assert "investigateSource" in javascript
+    assert "openSourceAlert" in javascript
+    assert ".source-timing" in styles

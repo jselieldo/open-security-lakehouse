@@ -129,6 +129,10 @@ def test_registered_source_tracks_ingestion_and_silence(monkeypatch) -> None:
         assert source.source_id == "docker-homelab"
         assert source.accepted_events == 1
         assert source.status == "active"
+        assert source.seconds_since_last_event is not None
+        assert source.seconds_until_silent is not None
+        assert source.silence_deadline_at is not None
+        assert source.monitoring_since is not None
         assert source_response(
             db.get(SourceCatalog, "docker-homelab"),
             datetime.now(UTC) + timedelta(minutes=31),

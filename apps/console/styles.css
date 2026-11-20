@@ -74,6 +74,17 @@ main { padding: 0 34px 42px; min-width: 0; }
 .list-item strong, .list-item small { display: block; }
 .list-item small { color: var(--muted); margin-top: 4px; }
 .badge { padding: 5px 8px; font-size: 10px; text-transform: uppercase; border-radius: 20px; color: var(--amber); background: rgba(247,185,85,.12); border: 1px solid rgba(247,185,85,.25); }
+.source-card { align-items: flex-start; }
+.source-main { flex: 1; min-width: 0; }
+.source-timing { display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)); gap: 8px; margin-top: 12px; }
+.source-timing span { padding: 9px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.source-timing strong { margin-top: 4px; color: var(--text); font-size: 12px; text-transform: none; }
+.source-guidance { margin: 11px 0 0; color: var(--muted); font-size: 12px; }
+.source-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+.source-actions .button { all: unset; box-sizing: border-box; flex: 0 0 auto; padding: 7px 10px; font-size: 11px; cursor: pointer; color: #041014; background: var(--cyan); border: 1px solid var(--cyan); border-radius: 7px; }
+.source-actions .button.secondary { color: var(--text); background: transparent; border-color: var(--line); }
+.source-silent { border-color: rgba(247,185,85,.55); }
+.source-disabled { opacity: .72; }
 .pipeline { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 125px; }
 .pipeline div { min-width: 85px; text-align: center; }
 .pipeline span, .pipeline strong, .pipeline small { display: block; }
@@ -172,4 +183,5 @@ dialog p:not(.eyebrow) { color: var(--muted); font-size: 13px; }
   .hero-panel { padding: 25px; }
   .pulse-orb { display: none; }
   .pipeline { flex-wrap: wrap; }
+  .source-timing { grid-template-columns: repeat(2, 1fr); }
 }

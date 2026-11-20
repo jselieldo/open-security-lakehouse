@@ -4,7 +4,7 @@ from hashlib import sha256
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .database import SourceCatalog
+from .database import Alert, SourceCatalog
 from .schemas import SourceRegistration, SourceResponse
 
 
@@ -67,11 +67,20 @@ def record_source_batch(
     matching.rejected_events = (matching.rejected_events or 0) + rejected
 
 
-def source_response(source: SourceCatalog, now: datetime | None = None) -> SourceResponse:
+def source_response(
+    source: SourceCatalog,
+    now: datetime | None = None,
+    active_silence_alert_id: str | None = None,
+) -> SourceResponse:
     now = now or datetime.now(UTC)
     last = source.last_received_at
     if last is not None and last.tzinfo is None:
         last = last.replace(tzinfo=UTC)
+    monitoring_since = source.created_at
+    if monitoring_since.tzinfo is None:
+        monitoring_since = monitoring_since.replace(tzinfo=UTC)
+    reference = last or monitoring_since
+    silence_deadline = reference + timedelta(minutes=source.expected_interval_minutes)
     if not source.enabled:
         state = "disabled"
     elif last is None:
@@ -93,11 +102,31 @@ def source_response(source: SourceCatalog, now: datetime | None = None) -> Sourc
         last_received_at=last,
         accepted_events=source.accepted_events,
         rejected_events=source.rejected_events,
+        monitoring_since=monitoring_since,
+        silence_deadline_at=silence_deadline if source.enabled else None,
+        seconds_since_last_event=(
+            max(0, int((now - last).total_seconds())) if last is not None else None
+        ),
+        seconds_until_silent=(
+            int((silence_deadline - now).total_seconds()) if source.enabled else None
+        ),
+        active_silence_alert_id=active_silence_alert_id,
     )
 
 
 def list_sources(db: Session) -> list[SourceResponse]:
+    active_alerts = {
+        item.source_id: item.alert_id
+        for item in db.scalars(
+            select(Alert).where(
+                Alert.rule_id == "source-silence",
+                Alert.status.in_({"open", "investigating", "reopened"}),
+                Alert.source_id.is_not(None),
+            )
+        ).all()
+        if item.source_id is not None
+    }
     return [
-        source_response(item)
+        source_response(item, active_silence_alert_id=active_alerts.get(item.source_id))
         for item in db.scalars(select(SourceCatalog).order_by(SourceCatalog.source_id)).all()
     ]

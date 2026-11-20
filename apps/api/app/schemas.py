@@ -56,6 +56,11 @@ class SourceResponse(SourceRegistration):
     last_received_at: datetime | None
     accepted_events: int
     rejected_events: int
+    monitoring_since: datetime
+    silence_deadline_at: datetime | None
+    seconds_since_last_event: int | None
+    seconds_until_silent: int | None
+    active_silence_alert_id: str | None = None
 
 
 class InvestigationRequest(BaseModel):

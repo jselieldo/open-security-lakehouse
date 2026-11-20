@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from app.database import Alert, AlertHistory, Base, SourceCatalog
 from app.source_health import check_source_health
+from app.sources import list_sources
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -50,6 +51,10 @@ def test_silent_source_alert_is_deduplicated_and_auto_resolved(monkeypatch) -> N
         assert alert.event_count == 0
         assert len(objects) == 1
         assert notifications == [alert.alert_id]
+        catalog = list_sources(db)
+        assert catalog[0].active_silence_alert_id == alert.alert_id
+        assert catalog[0].seconds_until_silent is not None
+        assert catalog[0].seconds_until_silent < 0
 
         item.last_received_at = now + timedelta(minutes=2)
         db.commit()

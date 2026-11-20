@@ -1,4 +1,4 @@
-const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], selectedAlertId: null, events: [], selectedEvent: null, searchPayload: null, currentPage: 1, totalPages: 1, auth: null };
+const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], sources: [], selectedAlertId: null, events: [], selectedEvent: null, searchPayload: null, currentPage: 1, totalPages: 1, auth: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -23,6 +23,23 @@ function escapeHtml(value) {
 function formatDate(value) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium" }).format(new Date(value));
+}
+
+function formatDuration(seconds) {
+  if (seconds === null || seconds === undefined) return "—";
+  const value = Math.max(0, Math.abs(seconds));
+  if (value < 60) return `${value} s`;
+  if (value < 3600) return `${Math.floor(value / 60)} min`;
+  if (value < 86400) return `${Math.floor(value / 3600)} h`;
+  return `${Math.floor(value / 86400)} d`;
+}
+
+function sourceGuidance(item) {
+  if (item.status === "disabled") return "Monitoramento desativado; habilite somente quando a coleta estiver pronta.";
+  if (item.kind === "windows") return "Verifique a tarefa OpenSecurityLakehouseVector, o processo vector.exe e a conexão TCP 6514.";
+  if (item.kind === "linux") return "Verifique rsyslog, a fila /var/spool/rsyslog e a conexão mTLS na porta 6514.";
+  if (item.kind === "docker") return "Verifique os serviços osl-docker-event-collector e osl-docker-log-collector e seus checkpoints.";
+  return "Confirme o processo coletor, a conectividade e o último checkpoint da origem.";
 }
 
 const severityLabels = { 0: "Debug", 1: "Informativa", 2: "Notice", 3: "Warning", 4: "Erro", 5: "Crítica", 6: "Emergência" };
@@ -331,10 +348,32 @@ async function loadSources() {
   if (!requireToken()) return;
   try {
     const sources = await api("/api/v1/sources");
+    state.sources = sources;
+    const configured = sources.filter((item) => item.configured && item.enabled);
+    const silent = configured.filter((item) => item.status === "silent");
+    const waiting = configured.filter((item) => item.status === "waiting");
+    $("#sources-summary").textContent = `${configured.length} monitoradas · ${silent.length} silenciosas · ${waiting.length} aguardando primeiro evento`;
     $("#sources-list").innerHTML = sources.length ? sources.map((item) =>
-      `<div class="list-item"><div><strong>${escapeHtml(item.display_name)}</strong><small>${escapeHtml(item.source_id)} · ${escapeHtml(item.kind)} · ${escapeHtml(item.hostname || "todos os hosts")} · ${item.configured ? "configurada" : "observada"}</small><small>Último evento: ${formatDate(item.last_received_at)} · ${item.accepted_events} aceitos · ${item.rejected_events} rejeitados</small></div><span class="badge">${escapeHtml(item.status)}</span></div>`
+      `<article class="list-item source-card source-${escapeHtml(item.status)}"><div class="source-main"><strong>${escapeHtml(item.display_name)}</strong><small>${escapeHtml(item.source_id)} · ${escapeHtml(item.kind)} · ${escapeHtml(item.hostname || "todos os hosts")} · ${item.configured ? "configurada" : "somente observada"}</small><div class="source-timing"><span>Último evento<strong>${item.last_received_at ? `${formatDuration(item.seconds_since_last_event)} atrás` : "ainda não recebido"}</strong></span><span>Limite<strong>${item.expected_interval_minutes} min</strong></span><span>Prazo<strong>${item.enabled ? (item.seconds_until_silent < 0 ? `excedido há ${formatDuration(item.seconds_until_silent)}` : `em ${formatDuration(item.seconds_until_silent)}`) : "desativado"}</strong></span><span>Eventos<strong>${item.accepted_events} aceitos</strong></span></div><p class="source-guidance">${escapeHtml(sourceGuidance(item))}</p><div class="source-actions"><button class="button secondary" data-investigate-source="${escapeHtml(item.source_id)}">Investigar eventos</button>${item.active_silence_alert_id ? `<button class="button" data-source-alert="${escapeHtml(item.active_silence_alert_id)}">Abrir alerta ativo</button>` : ""}</div></div><span class="badge">${escapeHtml(item.status)}</span></article>`
     ).join("") : '<div class="empty-state">Nenhuma fonte registrada ou observada.</div>';
+    $$('[data-investigate-source]').forEach((button) => button.addEventListener("click", () => investigateSource(button.dataset.investigateSource)));
+    $$('[data-source-alert]').forEach((button) => button.addEventListener("click", () => openSourceAlert(button.dataset.sourceAlert)));
   } catch (error) { handleError(error); }
+}
+
+function investigateSource(sourceId) {
+  const item = state.sources.find((source) => source.source_id === sourceId);
+  if (!item) return;
+  switchView("investigate");
+  const form = $("#search-form");
+  form.elements.source.value = item.source;
+  form.elements.hostname.value = item.hostname || "";
+  form.requestSubmit();
+}
+
+async function openSourceAlert(alertId) {
+  switchView("alerts");
+  await loadAlertDetail(alertId);
 }
 
 async function runRule(button) {
