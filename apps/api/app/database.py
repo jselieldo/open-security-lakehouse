@@ -70,6 +70,22 @@ class SourceCatalog(Base):
     )
 
 
+class Asset(Base):
+    __tablename__ = "assets"
+
+    asset_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    hostname: Mapped[str | None] = mapped_column(String(255), index=True)
+    primary_ip: Mapped[str | None] = mapped_column(String(64), index=True)
+    ip_addresses_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    sources_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    criticality: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
+    event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class DetectionRun(Base):
     __tablename__ = "detection_runs"
 

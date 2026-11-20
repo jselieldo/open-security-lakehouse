@@ -85,6 +85,15 @@ main { padding: 0 34px 42px; min-width: 0; }
 .source-actions .button.secondary { color: var(--text); background: transparent; border-color: var(--line); }
 .source-silent { border-color: rgba(247,185,85,.55); }
 .source-disabled { opacity: .72; }
+.asset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.asset-card { border: 1px solid var(--line); border-radius: 10px; background: rgba(7,16,22,.58); padding: 16px; min-width: 0; }
+.asset-card .panel-head { margin-bottom: 12px; }
+.asset-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.asset-card dl div { border: 1px solid var(--line); border-radius: 7px; padding: 9px; min-width: 0; }
+.asset-card dt { color: var(--muted); font-size: 9px; text-transform: uppercase; }
+.asset-card dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
+.asset-sources { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.asset-card .button { width: 100%; }
 .pipeline { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 125px; }
 .pipeline div { min-width: 85px; text-align: center; }
 .pipeline span, .pipeline strong, .pipeline small { display: block; }
@@ -164,6 +173,7 @@ dialog p:not(.eyebrow) { color: var(--muted); font-size: 13px; }
   .two-columns, .alert-layout { grid-template-columns: 1fr; }
   .filter-grid { grid-template-columns: repeat(2, 1fr); }
   .rules-grid { grid-template-columns: repeat(2, 1fr); }
+  .asset-grid { grid-template-columns: repeat(2, 1fr); }
   .event-summary dl { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 720px) {
@@ -176,7 +186,7 @@ dialog p:not(.eyebrow) { color: var(--muted); font-size: 13px; }
   main { padding: 0 16px 30px; }
   .topbar { height: auto; padding: 22px 0; align-items: flex-start; gap: 15px; }
   .top-actions .muted { display: none; }
-  .metrics, .filter-grid, .rules-grid { grid-template-columns: 1fr; }
+  .metrics, .filter-grid, .rules-grid, .asset-grid { grid-template-columns: 1fr; }
   .event-summary dl { grid-template-columns: 1fr; }
   .pagination { align-items: flex-start; flex-direction: column; }
   .triage-controls, .comment-form { grid-template-columns: 1fr; }

@@ -1,6 +1,12 @@
 # Open Security Lakehouse
 
-Milestone 11 introduces a source-coverage catalog, Docker container lifecycle
+Milestone 12 starts an observed asset inventory. Accepted telemetry now updates
+derived host/IP metadata in PostgreSQL, while complete security events remain in
+object storage. The authenticated console correlates an asset across sources and
+opens its event timeline. See
+[the asset inventory runbook](docs/runbooks/milestone12-assets.md).
+
+Milestone 11 introduced a source-coverage catalog, Docker container lifecycle
 collection, investigation filters for hostname/application/event type, and a Docker
 failure rule. Onboarding is staged; vendor-specific firewall/router and application
 parsers require sanitized real samples. See

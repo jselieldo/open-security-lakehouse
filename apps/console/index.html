@@ -20,10 +20,11 @@
           <button class="nav-item" data-view="alerts"><span>△</span>Alertas</button>
           <button class="nav-item" data-view="rules"><span>⌘</span>Detecções</button>
           <button class="nav-item" data-view="sources"><span>▣</span>Fontes</button>
+          <button class="nav-item" data-view="assets"><span>◇</span>Ativos</button>
         </nav>
         <div class="sidebar-foot">
           <span class="status-dot"></span>
-          <span><strong id="connection-label">Conectando</strong><small>Milestone 11</small></span>
+          <span><strong id="connection-label">Conectando</strong><small>Milestone 12</small></span>
         </div>
       </aside>
 
@@ -149,6 +150,13 @@
             <div id="sources-list" class="list"></div>
           </article>
         </section>
+        <section id="assets-view" class="view">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">CONTEXTO</p><h3>Inventário de ativos observados</h3><p id="assets-summary" class="muted">Carregando inventário…</p></div></div>
+            <p class="muted">Ativos são derivados da telemetria recebida. Hostnames declarados pelas fontes ainda precisam de validação operacional.</p>
+            <div id="assets-list" class="asset-grid"></div>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -162,6 +170,6 @@
         <div class="dialog-actions"><button value="cancel" class="button secondary">Cancelar</button><button value="default" class="button primary" id="save-token">Conectar</button></div>
       </form>
     </dialog>
-    <script src="./app.js?v=20261118-1" defer></script>
+    <script src="./app.js?v=20261120-1" defer></script>
   </body>
 </html>

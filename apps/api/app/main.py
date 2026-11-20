@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .assets import get_asset, list_assets
 from .config import get_settings
 from .database import (
     Alert,
@@ -49,6 +50,7 @@ from .schemas import (
     AlertDetailResponse,
     AlertResponse,
     AlertUpdateRequest,
+    AssetResponse,
     AuditLogResponse,
     AuthConfigResponse,
     BatchStatusResponse,
@@ -77,7 +79,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Open Security Lakehouse API",
-    version="0.11.0",
+    version="0.12.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -147,7 +149,7 @@ def auth_config() -> AuthConfigResponse:
 
 @app.get("/api/v1/system/info", dependencies=[Depends(require_roles("viewer"))], tags=["system"])
 def system_info() -> dict[str, str]:
-    return {"name": "Open Security Lakehouse", "milestone": "11", "version": "0.11.0"}
+    return {"name": "Open Security Lakehouse", "milestone": "12", "version": "0.12.0"}
 
 
 @app.get("/api/v1/users/me", response_model=UserResponse, tags=["users"])
@@ -291,6 +293,26 @@ def read_sources(
     db: Session = Depends(get_db),
 ) -> list[SourceResponse]:
     return list_sources(db)
+
+
+@app.get("/api/v1/assets", response_model=list[AssetResponse], tags=["assets"])
+def read_assets(
+    _: Annotated[Principal, Depends(require_roles("viewer", "analyst"))],
+    db: Session = Depends(get_db),
+) -> list[AssetResponse]:
+    return list_assets(db)
+
+
+@app.get("/api/v1/assets/{asset_id}", response_model=AssetResponse, tags=["assets"])
+def read_asset(
+    asset_id: str,
+    _: Annotated[Principal, Depends(require_roles("viewer", "analyst"))],
+    db: Session = Depends(get_db),
+) -> AssetResponse:
+    asset = get_asset(asset_id, db)
+    if asset is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
+    return asset
 
 
 @app.post("/api/v1/sources", response_model=SourceResponse, tags=["sources"])

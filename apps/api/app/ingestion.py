@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .assets import record_assets
 from .config import get_settings
 from .database import IngestionBatch
 from .event_index import event_time_bounds
@@ -101,6 +102,7 @@ def ingest_batch(payload: IngestionRequest, db: Session) -> IngestionResponse:
         batch.status = "completed" if normalized else "quarantined"
         batch.completed_at = datetime.now(UTC)
         record_source_batch(payload.source, payload.events, len(normalized), len(rejected), db)
+        record_assets(payload.source, normalized, db)
         db.commit()
         db.refresh(batch)
         INGESTION_BATCHES.labels(source=payload.source, status=batch.status).inc()

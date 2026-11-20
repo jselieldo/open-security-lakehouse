@@ -1,4 +1,4 @@
-const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], sources: [], selectedAlertId: null, events: [], selectedEvent: null, searchPayload: null, currentPage: 1, totalPages: 1, auth: null };
+const state = { token: sessionStorage.getItem("osl_token") || "", alerts: [], sources: [], assets: [], selectedAlertId: null, events: [], selectedEvent: null, searchPayload: null, currentPage: 1, totalPages: 1, auth: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -376,6 +376,32 @@ async function openSourceAlert(alertId) {
   await loadAlertDetail(alertId);
 }
 
+async function loadAssets() {
+  if (!requireToken()) return;
+  try {
+    state.assets = await api("/api/v1/assets");
+    const multiSource = state.assets.filter((item) => item.sources.length > 1).length;
+    const recentlySeen = state.assets.filter((item) => Date.now() - new Date(item.last_seen_at).getTime() < 3600000).length;
+    $("#assets-summary").textContent = `${state.assets.length} ativos · ${recentlySeen} vistos na última hora · ${multiSource} correlacionados entre fontes`;
+    $("#assets-list").innerHTML = state.assets.length ? state.assets.map((item) =>
+      `<article class="asset-card"><div class="panel-head"><div><p class="eyebrow">${escapeHtml(item.kind)}</p><h3>${escapeHtml(item.display_name)}</h3></div><span class="badge">${escapeHtml(item.criticality)}</span></div><dl><div><dt>Hostname</dt><dd>${escapeHtml(item.hostname || "—")}</dd></div><div><dt>IP principal</dt><dd>${escapeHtml(item.primary_ip || "—")}</dd></div><div><dt>Última observação</dt><dd>${formatDate(item.last_seen_at)}</dd></div><div><dt>Eventos correlacionados</dt><dd>${item.event_count}</dd></div></dl><p class="asset-sources">Fontes: ${item.sources.map(escapeHtml).join(" · ")}</p><button class="button secondary" data-investigate-asset="${escapeHtml(item.asset_id)}">Investigar linha do tempo</button></article>`
+    ).join("") : '<div class="empty-state">Nenhum ativo observado. O inventário será preenchido com novos eventos aceitos.</div>';
+    $$('[data-investigate-asset]').forEach((button) => button.addEventListener("click", () => investigateAsset(button.dataset.investigateAsset)));
+  } catch (error) { handleError(error); }
+}
+
+function investigateAsset(assetId) {
+  const item = state.assets.find((asset) => asset.asset_id === assetId);
+  if (!item) return;
+  switchView("investigate");
+  const form = $("#search-form");
+  form.reset();
+  form.elements.limit.value = "100";
+  form.elements.hostname.value = item.hostname || "";
+  form.elements.src_ip.value = item.hostname ? "" : (item.primary_ip || "");
+  form.requestSubmit();
+}
+
 async function runRule(button) {
   const original = button.textContent;
   button.disabled = true; button.textContent = "Executando…";
@@ -398,12 +424,13 @@ function handleError(error) {
 function switchView(name) {
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
   $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === name));
-  const labels = { overview: "Visão geral", investigate: "Investigar", alerts: "Alertas", rules: "Detecções", sources: "Fontes" };
+  const labels = { overview: "Visão geral", investigate: "Investigar", alerts: "Alertas", rules: "Detecções", sources: "Fontes", assets: "Ativos" };
   $("#page-title").textContent = labels[name];
   if (name === "overview") loadDashboard();
   if (name === "alerts") loadAlerts();
   if (name === "rules") loadRules();
   if (name === "sources") loadSources();
+  if (name === "assets") loadAssets();
 }
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));

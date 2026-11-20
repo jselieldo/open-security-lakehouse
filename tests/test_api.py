@@ -22,7 +22,7 @@ def test_protected_route_accepts_valid_token() -> None:
         scheme="Bearer", credentials="test-token-with-at-least-32-characters"
     )
     assert require_api_token(credentials) is None
-    assert system_info()["milestone"] == "11"
+    assert system_info()["milestone"] == "12"
 
 
 def test_auth_config_is_public_and_contains_no_secret() -> None:

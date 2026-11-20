@@ -63,6 +63,20 @@ class SourceResponse(SourceRegistration):
     active_silence_alert_id: str | None = None
 
 
+class AssetResponse(BaseModel):
+    asset_id: str
+    kind: str
+    display_name: str
+    hostname: str | None
+    primary_ip: str | None
+    ip_addresses: list[str]
+    sources: list[str]
+    criticality: str
+    event_count: int
+    first_seen_at: datetime
+    last_seen_at: datetime
+
+
 class InvestigationRequest(BaseModel):
     src_ip: str | None = None
     source: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9._-]*$")

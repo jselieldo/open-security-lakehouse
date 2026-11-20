@@ -53,3 +53,17 @@ def test_source_console_exposes_freshness_and_diagnostic_actions() -> None:
     assert "investigateSource" in javascript
     assert "openSourceAlert" in javascript
     assert ".source-timing" in styles
+
+
+def test_asset_console_exposes_inventory_and_investigation() -> None:
+    console = Path(__file__).parents[1] / "apps" / "console"
+    html = (console / "index.html").read_text()
+    javascript = (console / "app.js").read_text()
+    styles = (console / "styles.css").read_text()
+    assert 'data-view="assets"' in html
+    assert 'id="assets-summary"' in html
+    assert 'id="assets-list"' in html
+    assert "/api/v1/assets" in javascript
+    assert "loadAssets" in javascript
+    assert "investigateAsset" in javascript
+    assert ".asset-grid" in styles
