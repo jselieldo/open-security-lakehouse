@@ -34,7 +34,9 @@ time from the directory date, which is the ingestion date and may differ for lat
 For a one-time safe backfill after upgrading a legacy lake, run
 `docker compose exec -T api python -m app.event_index_backfill`. The command adds
 only missing `.index.json` sidecars and never rewrites Parquet telemetry. Repeating
-it is safe; verify the reported examined, created and skipped counts.
+it is safe; verify the reported examined, created and skipped counts. The command
+uses eight workers by default and rejects values above 16; set
+`OSL_EVENT_INDEX_WORKERS=4` before the command on a constrained host.
 Events arriving after the compaction snapshot are read alongside the compacted object, so an
 operator may explicitly include the active day by passing tomorrow's UTC date to `--before`.
 The safe default still excludes the active day.

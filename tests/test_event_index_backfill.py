@@ -34,3 +34,12 @@ def test_backfill_creates_only_missing_indexes(monkeypatch) -> None:
     body, content_type = writes[f"{first}.index.json"]
     assert content_type == "application/json"
     assert json.loads(body)["min_event_time"] == "2026-11-20T12:00:00+00:00"
+
+
+def test_backfill_rejects_unsafe_worker_count() -> None:
+    try:
+        backfill_event_indexes(17)
+    except ValueError as exc:
+        assert "between 1 and 16" in str(exc)
+    else:
+        raise AssertionError("unsafe backfill concurrency was accepted")
