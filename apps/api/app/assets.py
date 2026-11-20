@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .database import Asset
-from .schemas import AssetResponse
+from .schemas import AssetResponse, AssetUpdateRequest
 
 
 def _asset_kind(source: str) -> str:
@@ -83,7 +83,9 @@ def asset_response(asset: Asset) -> AssetResponse:
         primary_ip=asset.primary_ip,
         ip_addresses=json.loads(asset.ip_addresses_json),
         sources=json.loads(asset.sources_json),
+        aliases=json.loads(asset.aliases_json),
         criticality=asset.criticality,
+        owner=asset.owner,
         event_count=asset.event_count,
         first_seen_at=asset.first_seen_at,
         last_seen_at=asset.last_seen_at,
@@ -100,3 +102,37 @@ def list_assets(db: Session) -> list[AssetResponse]:
 def get_asset(asset_id: str, db: Session) -> AssetResponse | None:
     asset = db.get(Asset, asset_id)
     return asset_response(asset) if asset else None
+
+
+def update_asset(
+    asset_id: str, payload: AssetUpdateRequest, db: Session
+) -> AssetResponse | None:
+    asset = db.get(Asset, asset_id)
+    if asset is None:
+        return None
+    fields = payload.model_fields_set
+    if "criticality" in fields and payload.criticality is not None:
+        asset.criticality = payload.criticality
+    if "owner" in fields:
+        asset.owner = payload.owner
+    if "aliases" in fields and payload.aliases is not None:
+        asset.aliases_json = json.dumps(payload.aliases, separators=(",", ":"))
+    db.commit()
+    db.refresh(asset)
+    return asset_response(asset)
+
+
+def correlate_asset(events: list[dict], db: Session) -> Asset | None:
+    identities = {
+        _identity(
+            event.get("hostname") if isinstance(event.get("hostname"), str) else None,
+            event.get("src_ip") if isinstance(event.get("src_ip"), str) else None,
+        )
+        for event in events
+    }
+    identities.discard(None)
+    if len(identities) != 1:
+        return None
+    identity_type, identity_value = next(iter(identities))
+    asset_id = sha256(f"{identity_type}:{identity_value}".encode()).hexdigest()
+    return db.get(Asset, asset_id)

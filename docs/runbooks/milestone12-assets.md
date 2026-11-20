@@ -15,7 +15,13 @@ filtered by hostname or, for IP-only assets, by source IP. API access requires t
 ```text
 GET /api/v1/assets
 GET /api/v1/assets/{asset_id}
+PATCH /api/v1/assets/{asset_id}   (admin)
 ```
+
+Administrators can assign `criticality`, `owner` and up to 20 normalized aliases.
+New detection alerts that contain events from one known asset receive an immutable
+snapshot of its identifier, display name and criticality. Changing an asset later
+does not rewrite existing alert evidence or historical alert context.
 
 The console starts an asset timeline with a 24-hour window to avoid an accidental
 full-lake scan. Analysts may change or remove that period explicitly. Older

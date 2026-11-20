@@ -94,6 +94,8 @@ main { padding: 0 34px 42px; min-width: 0; }
 .asset-card dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
 .asset-sources { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .asset-card .button { width: 100%; }
+.asset-context { display: grid; gap: 8px; margin: 12px 0; }
+.asset-context input, .asset-context select { padding: 8px 9px; }
 .pipeline { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 125px; }
 .pipeline div { min-width: 85px; text-align: center; }
 .pipeline span, .pipeline strong, .pipeline small { display: block; }

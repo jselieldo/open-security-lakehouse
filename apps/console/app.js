@@ -278,7 +278,7 @@ async function loadAlerts() {
   try {
     state.alerts = await api("/api/v1/alerts?limit=100");
     const target = $("#alerts-list");
-    target.innerHTML = state.alerts.length ? state.alerts.map((alert) => `<div class="list-item"><button data-alert="${escapeHtml(alert.alert_id)}"><strong>${escapeHtml(alert.title)}</strong><small>${formatDate(alert.created_at)} · ${alert.event_count} eventos</small></button><span class="badge">${escapeHtml(alert.severity)}</span></div>`).join("") : '<div class="empty-state">Nenhum alerta encontrado.</div>';
+    target.innerHTML = state.alerts.length ? state.alerts.map((alert) => `<div class="list-item"><button data-alert="${escapeHtml(alert.alert_id)}"><strong>${escapeHtml(alert.title)}</strong><small>${formatDate(alert.created_at)} · ${alert.event_count} eventos${alert.asset_display_name ? ` · ${escapeHtml(alert.asset_display_name)}` : ""}</small></button><span class="badge">${escapeHtml(alert.asset_criticality || alert.severity)}</span></div>`).join("") : '<div class="empty-state">Nenhum alerta encontrado.</div>';
     $$('[data-alert]').forEach((button) => button.addEventListener("click", () => loadAlertDetail(button.dataset.alert)));
   } catch (error) { handleError(error); }
 }
@@ -305,7 +305,8 @@ async function loadAlertDetail(alertId) {
     [...$("#alert-status-select").options].forEach((option) => { option.disabled = !allowed.includes(option.value); });
     $("#triage-controls").classList.remove("hidden");
     $("#alert-comment-form").classList.remove("hidden");
-    $("#alert-assignee").textContent = detail.alert.assignee_username ? `Responsável: ${detail.alert.assignee_username}` : "Sem responsável";
+    const assetContext = detail.alert.asset_display_name ? ` · Ativo: ${detail.alert.asset_display_name} (${detail.alert.asset_criticality})` : "";
+    $("#alert-assignee").textContent = `${detail.alert.assignee_username ? `Responsável: ${detail.alert.assignee_username}` : "Sem responsável"}${assetContext}`;
     $("#alert-assignee").classList.remove("hidden");
     $("#assign-alert").dataset.assigned = detail.alert.assignee_username ? "true" : "false";
     $("#assign-alert").textContent = detail.alert.assignee_username ? "Liberar responsável" : "Assumir alerta";
@@ -384,10 +385,18 @@ async function loadAssets() {
     const recentlySeen = state.assets.filter((item) => Date.now() - new Date(item.last_seen_at).getTime() < 3600000).length;
     $("#assets-summary").textContent = `${state.assets.length} ativos · ${recentlySeen} vistos na última hora · ${multiSource} correlacionados entre fontes`;
     $("#assets-list").innerHTML = state.assets.length ? state.assets.map((item) =>
-      `<article class="asset-card"><div class="panel-head"><div><p class="eyebrow">${escapeHtml(item.kind)}</p><h3>${escapeHtml(item.display_name)}</h3></div><span class="badge">${escapeHtml(item.criticality)}</span></div><dl><div><dt>Hostname</dt><dd>${escapeHtml(item.hostname || "—")}</dd></div><div><dt>IP principal</dt><dd>${escapeHtml(item.primary_ip || "—")}</dd></div><div><dt>Última observação</dt><dd>${formatDate(item.last_seen_at)}</dd></div><div><dt>Eventos correlacionados</dt><dd>${item.event_count}</dd></div></dl><p class="asset-sources">Fontes: ${item.sources.map(escapeHtml).join(" · ")}</p><button class="button secondary" data-investigate-asset="${escapeHtml(item.asset_id)}">Investigar linha do tempo</button></article>`
+      `<article class="asset-card"><div class="panel-head"><div><p class="eyebrow">${escapeHtml(item.kind)}</p><h3>${escapeHtml(item.display_name)}</h3></div><span class="badge">${escapeHtml(item.criticality)}</span></div><dl><div><dt>Hostname</dt><dd>${escapeHtml(item.hostname || "—")}</dd></div><div><dt>IP principal</dt><dd>${escapeHtml(item.primary_ip || "—")}</dd></div><div><dt>Última observação</dt><dd>${formatDate(item.last_seen_at)}</dd></div><div><dt>Eventos correlacionados</dt><dd>${item.event_count}</dd></div></dl><p class="asset-sources">Fontes: ${item.sources.map(escapeHtml).join(" · ")}</p><div class="asset-context"><label>Criticidade<select data-asset-criticality="${escapeHtml(item.asset_id)}"><option value="low" ${item.criticality === "low" ? "selected" : ""}>Baixa</option><option value="normal" ${item.criticality === "normal" ? "selected" : ""}>Normal</option><option value="high" ${item.criticality === "high" ? "selected" : ""}>Alta</option><option value="critical" ${item.criticality === "critical" ? "selected" : ""}>Crítica</option></select></label><label>Proprietário<input data-asset-owner="${escapeHtml(item.asset_id)}" value="${escapeHtml(item.owner || "")}" maxlength="200" /></label><label>Aliases<input data-asset-aliases="${escapeHtml(item.asset_id)}" value="${escapeHtml(item.aliases.join(", "))}" /></label></div><div class="source-actions"><button class="button secondary" data-investigate-asset="${escapeHtml(item.asset_id)}">Investigar linha do tempo</button><button class="button" data-save-asset="${escapeHtml(item.asset_id)}">Salvar contexto</button></div></article>`
     ).join("") : '<div class="empty-state">Nenhum ativo observado. O inventário será preenchido com novos eventos aceitos.</div>';
     $$('[data-investigate-asset]').forEach((button) => button.addEventListener("click", () => investigateAsset(button.dataset.investigateAsset)));
+    $$('[data-save-asset]').forEach((button) => button.addEventListener("click", () => saveAssetContext(button.dataset.saveAsset).catch(handleError)));
   } catch (error) { handleError(error); }
+}
+
+async function saveAssetContext(assetId) {
+  const aliases = $(`[data-asset-aliases="${assetId}"]`).value.split(",").map((value) => value.trim()).filter(Boolean);
+  await api(`/api/v1/assets/${encodeURIComponent(assetId)}`, { method: "PATCH", body: JSON.stringify({ criticality: $(`[data-asset-criticality="${assetId}"]`).value, owner: $(`[data-asset-owner="${assetId}"]`).value, aliases }) });
+  showNotice("Contexto do ativo atualizado.");
+  await loadAssets();
 }
 
 function investigateAsset(assetId) {

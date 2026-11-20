@@ -71,10 +71,33 @@ class AssetResponse(BaseModel):
     primary_ip: str | None
     ip_addresses: list[str]
     sources: list[str]
+    aliases: list[str]
     criticality: str
+    owner: str | None
     event_count: int
     first_seen_at: datetime
     last_seen_at: datetime
+
+
+class AssetUpdateRequest(BaseModel):
+    criticality: Literal["low", "normal", "high", "critical"] | None = None
+    owner: str | None = Field(default=None, max_length=200)
+    aliases: list[str] | None = Field(default=None, max_length=20)
+
+    @field_validator("owner")
+    @classmethod
+    def clean_owner(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
+
+    @field_validator("aliases")
+    @classmethod
+    def clean_aliases(cls, values: list[str] | None) -> list[str] | None:
+        if values is None:
+            return None
+        cleaned = [value.strip().lower() for value in values]
+        if any(not value or len(value) > 255 for value in cleaned):
+            raise ValueError("aliases must contain 1 to 255 characters")
+        return list(dict.fromkeys(cleaned))
 
 
 class InvestigationRequest(BaseModel):
@@ -194,6 +217,9 @@ class AlertResponse(BaseModel):
     alert_id: str
     rule_id: str
     source_id: str | None = None
+    asset_id: str | None = None
+    asset_display_name: str | None = None
+    asset_criticality: str | None = None
     title: str
     severity: str
     status: str

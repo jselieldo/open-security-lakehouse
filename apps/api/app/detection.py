@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .assets import correlate_asset
 from .config import get_settings
 from .database import Alert, DetectionRun
 from .investigation import investigate
@@ -120,11 +121,15 @@ def _create_alert(
         json.dumps(evidence, separators=(",", ":"), default=str).encode(),
         "application/json",
     )
+    asset = correlate_asset(events, db)
     db.add(
         Alert(
             alert_id=alert_id,
             fingerprint=fingerprint,
             rule_id=rule.id,
+            asset_id=asset.asset_id if asset else None,
+            asset_display_name=asset.display_name if asset else None,
+            asset_criticality=asset.criticality if asset else None,
             title=rule.title,
             severity=rule.severity,
             status="open",
@@ -169,6 +174,9 @@ def alert_response(alert: Alert) -> AlertResponse:
         alert_id=alert.alert_id,
         rule_id=alert.rule_id,
         source_id=alert.source_id,
+        asset_id=alert.asset_id,
+        asset_display_name=alert.asset_display_name,
+        asset_criticality=alert.asset_criticality,
         title=alert.title,
         severity=alert.severity,
         status=alert.status,

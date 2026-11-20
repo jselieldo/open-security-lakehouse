@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
+from app.assets import record_assets
 from app.database import Alert, Base
 from app.detection import (
     DetectionRule,
@@ -41,6 +42,7 @@ def investigation_result() -> InvestigationResponse:
                 "event_time": now,
                 "ingested_at": now,
                 "severity_id": 5,
+                "hostname": "homelab",
             }
         ],
     )
@@ -105,6 +107,8 @@ def test_detection_creates_alert_and_evidence(monkeypatch) -> None:
         lambda key, body, content_type: objects.update({key: (body, content_type)}),
     )
     with Session(engine, expire_on_commit=False) as db:
+        record_assets("linux", investigation_result().events, db)
+        db.commit()
         result = execute_rule(rule(), db)
         alert = db.scalar(select(Alert))
 
@@ -112,6 +116,8 @@ def test_detection_creates_alert_and_evidence(monkeypatch) -> None:
     assert result.matched_count == 1
     assert result.alert_created is True
     assert alert is not None
+    assert alert.asset_display_name == "homelab"
+    assert alert.asset_criticality == "normal"
     assert alert.evidence_object_key in objects
     assert objects[alert.evidence_object_key][1] == "application/json"
 

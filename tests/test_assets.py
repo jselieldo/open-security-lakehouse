@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 
 import pytest
-from app.assets import get_asset, list_assets, record_assets
+from app.assets import correlate_asset, get_asset, list_assets, record_assets, update_asset
 from app.database import Base
-from app.main import app, read_asset, read_assets
+from app.main import app, patch_asset, read_asset, read_assets
+from app.schemas import AssetUpdateRequest
 from app.security import Principal
 from fastapi import HTTPException
 from sqlalchemy import create_engine
@@ -33,7 +34,21 @@ def test_observed_assets_are_deduplicated_and_enriched() -> None:
         assert assets[0].event_count == 3
         assert assets[0].ip_addresses == ["192.168.3.120", "192.168.3.121"]
         assert assets[0].sources == ["docker-events", "linux-syslog"]
+        assert assets[0].aliases == []
+        assert assets[0].owner is None
         assert get_asset(assets[0].asset_id, db) == assets[0]
+        updated = update_asset(
+            assets[0].asset_id,
+            AssetUpdateRequest(
+                criticality="critical", owner="SOC", aliases=["HOME-LAB", "home-lab"]
+            ),
+            db,
+        )
+        assert updated is not None
+        assert updated.criticality == "critical"
+        assert updated.owner == "SOC"
+        assert updated.aliases == ["home-lab"]
+        assert correlate_asset([normalized()], db).asset_id == assets[0].asset_id
 
 
 def test_ip_only_asset_is_supported_without_trusting_event_body_storage() -> None:
@@ -59,6 +74,13 @@ def test_asset_public_endpoints_and_not_found() -> None:
         db.commit()
         result = read_assets(None, db)  # type: ignore[arg-type]
         assert read_asset(result[0].asset_id, None, db) == result[0]  # type: ignore[arg-type]
+        changed = patch_asset(
+            result[0].asset_id,
+            AssetUpdateRequest(criticality="high", owner="Infrastructure"),
+            None,  # type: ignore[arg-type]
+            db,
+        )
+        assert changed.criticality == "high"
         with pytest.raises(HTTPException) as missing:
             read_asset("missing", None, db)  # type: ignore[arg-type]
         assert missing.value.status_code == 404
@@ -76,10 +98,17 @@ def test_asset_endpoint_role_contracts(monkeypatch) -> None:
     ingestor = Principal("ingestor", "ingestor", None, None, frozenset({"ingestor"}), "test")
     for route in routes:
         dependency = route.dependant.dependencies[0].call
-        assert dependency(request, viewer) == viewer
+        if "PATCH" in route.methods:
+            admin = Principal("admin", "admin", None, None, frozenset({"admin"}), "test")
+            assert dependency(request, admin) == admin
+            allowed = admin
+        else:
+            assert dependency(request, viewer) == viewer
+            allowed = viewer
         with pytest.raises(HTTPException) as denied:
             dependency(request, ingestor)
         assert denied.value.status_code == 403
+        assert allowed is not ingestor
 
 
 def test_asset_endpoint_reports_dependency_failure(monkeypatch) -> None:
@@ -93,3 +122,11 @@ def test_asset_endpoint_reports_dependency_failure(monkeypatch) -> None:
     )
     with pytest.raises(RuntimeError, match="db down"):
         read_asset("asset", None, None)  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        "app.main.update_asset",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("db down")),
+    )
+    with pytest.raises(RuntimeError, match="db down"):
+        patch_asset(
+            "asset", AssetUpdateRequest(criticality="high"), None, None
+        )  # type: ignore[arg-type]

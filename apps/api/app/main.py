@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .assets import get_asset, list_assets
+from .assets import get_asset, list_assets, update_asset
 from .config import get_settings
 from .database import (
     Alert,
@@ -51,6 +51,7 @@ from .schemas import (
     AlertResponse,
     AlertUpdateRequest,
     AssetResponse,
+    AssetUpdateRequest,
     AuditLogResponse,
     AuthConfigResponse,
     BatchStatusResponse,
@@ -310,6 +311,19 @@ def read_asset(
     db: Session = Depends(get_db),
 ) -> AssetResponse:
     asset = get_asset(asset_id, db)
+    if asset is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
+    return asset
+
+
+@app.patch("/api/v1/assets/{asset_id}", response_model=AssetResponse, tags=["assets"])
+def patch_asset(
+    asset_id: str,
+    payload: AssetUpdateRequest,
+    _: Annotated[Principal, Depends(require_roles("admin"))],
+    db: Session = Depends(get_db),
+) -> AssetResponse:
+    asset = update_asset(asset_id, payload, db)
     if asset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
     return asset
