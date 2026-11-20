@@ -1,11 +1,12 @@
 import json
 from datetime import UTC, datetime
 from hashlib import sha256
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .database import Asset
+from .database import Asset, AssetChange
 from .schemas import AssetResponse, AssetUpdateRequest
 
 
@@ -51,7 +52,8 @@ def record_assets(source: str, events: list[dict], db: Session) -> None:
         asset = db.get(Asset, asset_id)
         hostname = observation["hostname"]
         source_ip = observation["source_ip"]
-        if asset is None:
+        is_new = asset is None
+        if is_new:
             asset = Asset(
                 asset_id=asset_id,
                 kind=_asset_kind(source),
@@ -64,6 +66,13 @@ def record_assets(source: str, events: list[dict], db: Session) -> None:
             db.add(asset)
         addresses = set(json.loads(asset.ip_addresses_json or "[]"))
         sources = set(json.loads(asset.sources_json or "[]"))
+        changes: list[tuple[str, str | None, str]] = []
+        if is_new:
+            changes.append(("new_asset", None, str(hostname or source_ip)))
+        elif source_ip and str(source_ip) not in addresses:
+            changes.append(("new_ip", asset.primary_ip, str(source_ip)))
+        if not is_new and source not in sources:
+            changes.append(("new_source", ",".join(sorted(sources)) or None, source))
         if source_ip:
             addresses.add(str(source_ip))
             asset.primary_ip = str(source_ip)
@@ -72,6 +81,19 @@ def record_assets(source: str, events: list[dict], db: Session) -> None:
         asset.sources_json = json.dumps(sorted(sources), separators=(",", ":"))
         asset.event_count = (asset.event_count or 0) + int(observation["count"])
         asset.last_seen_at = now
+        if not source.startswith("test-"):
+            for change_type, old_value, new_value in changes:
+                db.add(
+                    AssetChange(
+                        change_id=str(uuid4()),
+                        asset_id=asset_id,
+                        change_type=change_type,
+                        old_value=old_value,
+                        new_value=new_value,
+                        source=source,
+                        observed_at=now,
+                    )
+                )
 
 
 def asset_response(asset: Asset) -> AssetResponse:

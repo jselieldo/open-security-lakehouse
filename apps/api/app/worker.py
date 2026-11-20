@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
+from .asset_monitor import process_asset_changes
 from .config import get_settings
 from .database import SessionLocal
 from .detection import execute_rule, load_rules
@@ -23,6 +24,11 @@ def run_source_health() -> None:
         check_source_health(db)
 
 
+def run_asset_monitor() -> None:
+    with SessionLocal() as db:
+        process_asset_changes(db)
+
+
 def main() -> None:
     ensure_bucket()
     scheduler = BlockingScheduler(timezone="UTC")
@@ -31,6 +37,16 @@ def main() -> None:
         "interval",
         minutes=get_settings().source_health_check_minutes,
         id="source-health",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        next_run_time=datetime.now(UTC),
+    )
+    scheduler.add_job(
+        run_asset_monitor,
+        "interval",
+        minutes=get_settings().source_health_check_minutes,
+        id="asset-monitor",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

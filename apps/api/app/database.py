@@ -88,6 +88,21 @@ class Asset(Base):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AssetChange(Base):
+    __tablename__ = "asset_changes"
+
+    change_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    asset_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    change_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    old_value: Mapped[str | None] = mapped_column(String(500))
+    new_value: Mapped[str] = mapped_column(String(500), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    alert_id: Mapped[str | None] = mapped_column(String(36), index=True)
+
+
 class DetectionRun(Base):
     __tablename__ = "detection_runs"
 

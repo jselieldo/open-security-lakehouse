@@ -33,6 +33,7 @@ FastAPI + Vector --metrics--> Prometheus --datasource--> Grafana
 - Milestone 10 runs scheduled detections in a dedicated worker, connects Prometheus to Alertmanager, and provides alert triage/history.
 - Milestone 11 catalogs configured and observed sources in PostgreSQL, ingests Docker lifecycle events through a host-side authenticated forwarder, and exposes source coverage and structured host/application/type filters. Raw and normalized telemetry remain in object storage. Vendor parsers and independently authenticated host collectors are not yet provided.
 - Milestone 12 derives an asset inventory from accepted normalized events. PostgreSQL keeps only identity, source, counters, first/last-seen and operator-managed context; event bodies remain in object storage. Hostname correlation is case-insensitive and should be treated as observed context, not proof of device identity. New single-asset alerts snapshot the asset name and criticality so later inventory edits do not rewrite alert history or immutable evidence.
+- Asset discovery and context changes are queued as operational metadata during ingestion, then converted asynchronously into deduplicated alerts and immutable object-storage evidence. This keeps notification and storage dependency failures outside the data-plane ingestion transaction.
 - The first Windows increment uses pinned Vector 0.61.0 on the workstation. It
   preserves native event fields, checkpoints locally, and enters through the
   CIDR-restricted, mutually authenticated TLS syslog listener on TCP 6514.
