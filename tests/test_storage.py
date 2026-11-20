@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from app.storage import lake_storage_stats
@@ -24,3 +25,9 @@ def test_lake_storage_stats_groups_objects_by_area() -> None:
     assert stats["quarantine"] == (1, 50)
     assert stats["artifacts"] == (1, 75)
     assert stats["other"] == (1, 25)
+
+
+def test_filer_healthcheck_uses_empty_health_endpoint() -> None:
+    compose = (Path(__file__).parents[1] / "compose.yaml").read_text()
+    assert "http://seaweed-filer:8888/healthz" in compose
+    assert '"--spider", "http://seaweed-filer:8888/"' not in compose
