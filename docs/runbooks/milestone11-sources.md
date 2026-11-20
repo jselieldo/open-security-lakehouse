@@ -32,6 +32,9 @@
 6. For firewall/router or application onboarding, collect sanitized sample
    messages plus model, firmware and export method (syslog/CEF/LEEF/JSON/API).
    Do not classify them as Linux or claim OCSF conformity without a tested parser.
+   For an AX2 without a confirmed export method, see the
+   [HUAWEI WiFi AX2 coverage assessment](huawei-ax2-visibility.md); do not
+   register it as an active telemetry source until ingestion is verified.
 
 Use **Fontes** in the console or `GET /api/v1/sources` to see configured versus
 observed entries and `waiting`, `active`, `silent`, or `disabled` states.
