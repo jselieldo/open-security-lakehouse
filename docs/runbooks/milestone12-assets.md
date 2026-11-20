@@ -17,6 +17,11 @@ GET /api/v1/assets
 GET /api/v1/assets/{asset_id}
 ```
 
+The console starts an asset timeline with a 24-hour window to avoid an accidental
+full-lake scan. Analysts may change or remove that period explicitly. Older
+objects created before event-time indexes remain searchable but can make broad
+queries slow.
+
 ## Trust boundaries
 
 - Hostnames and source IPs are claims observed in telemetry, not authenticated

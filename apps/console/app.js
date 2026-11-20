@@ -399,6 +399,9 @@ function investigateAsset(assetId) {
   form.elements.limit.value = "100";
   form.elements.hostname.value = item.hostname || "";
   form.elements.src_ip.value = item.hostname ? "" : (item.primary_ip || "");
+  const start = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const localStart = new Date(start.getTime() - start.getTimezoneOffset() * 60000);
+  form.elements.start_time.value = localStart.toISOString().slice(0, 16);
   form.requestSubmit();
 }
 

@@ -66,4 +66,5 @@ def test_asset_console_exposes_inventory_and_investigation() -> None:
     assert "/api/v1/assets" in javascript
     assert "loadAssets" in javascript
     assert "investigateAsset" in javascript
+    assert "24 * 60 * 60 * 1000" in javascript
     assert ".asset-grid" in styles
