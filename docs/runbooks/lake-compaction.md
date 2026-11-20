@@ -1,5 +1,10 @@
 # Lake compaction runbook
 
+Do not run event-index backfill inside the API container while the platform is
+serving requests. On lakes with tens of thousands of objects it can exhaust the
+shared S3 path and make readiness or Prometheus scrapes time out. The homelab
+backfill is currently paused pending an isolated, rate-limited maintenance job.
+
 Compaction reduces investigation latency by combining the many small normalized Parquet
 objects created by ingestion. Raw evidence, quarantine objects, and original normalized
 batch objects are not deleted. This first phase is deliberately non-destructive.

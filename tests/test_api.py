@@ -54,8 +54,8 @@ def test_readiness_reports_failure_without_leaking_exception() -> None:
     assert error.value.detail["failed_dependencies"] == ["database"]
 
 
-def test_metrics_endpoint_exposes_lake_and_dependency_metrics() -> None:
-    with patch("app.main.lake_storage_stats", return_value={"raw": (2, 512)}):
-        response = metrics()
-    assert b'osl_lake_objects{area="raw"} 2.0' in response.body
-    assert b'osl_lake_bytes{area="raw"} 512.0' in response.body
+def test_metrics_endpoint_does_not_scan_object_storage() -> None:
+    response = metrics()
+    assert response.status_code == 200
+    assert b"osl_http_requests_total" in response.body
+    assert b"osl_ingestion_batches_total" in response.body

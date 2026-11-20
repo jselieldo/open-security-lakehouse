@@ -17,6 +17,11 @@ Windows Event Log --Vector/RFC5424 mTLS TCP 6514--> Vector --> FastAPI ingestion
 FastAPI + Vector --metrics--> Prometheus --datasource--> Grafana
 ```
 
+The Prometheus scrape endpoint never lists the object lake. Full S3 inventory
+scans are maintenance operations because large object counts can exceed scrape
+timeouts and make the API appear unavailable. Lake object/byte gauges therefore
+remain unchanged until an isolated inventory refresher is introduced.
+
 - PostgreSQL stores operational metadata only; security events will live in object storage.
 - The API talks to storage through the S3 contract. A later Ceph or cloud migration does not change application domain code.
 - `storage` is an internal Compose network. `backend` permits publishing the API on

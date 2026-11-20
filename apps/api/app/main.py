@@ -41,7 +41,6 @@ from .metrics import (
     DEPENDENCY_UP,
     HTTP_DURATION,
     HTTP_REQUESTS,
-    METRICS_REFRESH_FAILURES,
     render_metrics,
 )
 from .schemas import (
@@ -69,7 +68,7 @@ from .schemas import (
 )
 from .security import Principal, get_current_principal, require_roles
 from .sources import list_sources, register_source
-from .storage import check_storage, ensure_bucket, lake_storage_stats
+from .storage import check_storage, ensure_bucket
 from .triage import InvalidAlertTransitionError, add_comment, get_alert_detail, update_alert
 
 
@@ -131,12 +130,7 @@ def ready() -> dict[str, str]:
 
 @app.get("/metrics", include_in_schema=False)
 def metrics() -> Response:
-    try:
-        stats = lake_storage_stats()
-    except Exception:
-        METRICS_REFRESH_FAILURES.inc()
-        stats = None
-    return Response(content=render_metrics(stats), media_type="text/plain; version=0.0.4")
+    return Response(content=render_metrics(), media_type="text/plain; version=0.0.4")
 
 
 @app.get("/api/v1/auth/config", response_model=AuthConfigResponse, tags=["authentication"])
