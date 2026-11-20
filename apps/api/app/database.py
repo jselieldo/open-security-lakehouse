@@ -51,6 +51,20 @@ class IngestionBatch(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class LakeObject(Base):
+    __tablename__ = "lake_objects"
+
+    object_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    min_event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    max_event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    row_count: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
 class SourceCatalog(Base):
     __tablename__ = "source_catalog"
 

@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 
 from .event_index import outside_time_range
 from .metrics import INVESTIGATION_DURATION
+from .object_catalog import catalog_keys
 from .schemas import InvestigationRequest, InvestigationResponse
 from .storage import get_object_bytes, list_object_keys
 
@@ -33,10 +34,16 @@ EMPTY_COLUMNS = {
 def investigate(request: InvestigationRequest) -> InvestigationResponse:
     started = perf_counter()
     prefix = f"normalized/source={request.source}/" if request.source else "normalized/"
-    all_keys = list_object_keys(prefix)
-    manifests = _load_compaction_manifests(all_keys)
-    keys = _select_query_objects(all_keys, manifests)
-    keys = _prune_by_event_time(keys, all_keys, manifests, request)
+    keys = (
+        catalog_keys(request.source, request.start_time, request.end_time)
+        if request.start_time is not None or request.end_time is not None
+        else None
+    )
+    if keys is None or (request.start_time is None and request.end_time is None):
+        all_keys = list_object_keys(prefix)
+        manifests = _load_compaction_manifests(all_keys)
+        keys = _select_query_objects(all_keys, manifests)
+        keys = _prune_by_event_time(keys, all_keys, manifests, request)
     table = _load_tables(keys)
     sql, parameters = _build_query(request)
     count_sql, count_parameters = _build_count_query(request)

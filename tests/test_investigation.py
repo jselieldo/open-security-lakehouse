@@ -75,6 +75,26 @@ def test_investigation_filters_time_range(monkeypatch) -> None:
     assert [event["event_id"] for event in result.events] == ["evt-high"]
 
 
+def test_bounded_investigation_uses_catalog_without_s3_listing(monkeypatch) -> None:
+    key = "normalized/source=synthetic-linux/year=2026/month=11/day=20/batch=one.parquet"
+    monkeypatch.setattr("app.investigation.catalog_keys", lambda *_args: [key])
+    monkeypatch.setattr(
+        "app.investigation.list_object_keys",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("S3 listing used")),
+    )
+    monkeypatch.setattr(
+        "app.investigation.get_object_bytes", lambda _key: parquet_bytes(rows())
+    )
+    result = investigate(
+        InvestigationRequest(
+            source="synthetic-linux",
+            start_time=datetime(2026, 11, 16, 11, 30, tzinfo=UTC),
+        )
+    )
+    assert result.scanned_objects == 1
+    assert result.total_count == 1
+
+
 def test_event_time_index_skips_unrelated_objects_even_when_ingested_later(monkeypatch) -> None:
     old = "normalized/source=linux/year=2026/month=11/day=18/batch=old.parquet"
     late = "normalized/source=linux/year=2026/month=11/day=18/batch=late.parquet"

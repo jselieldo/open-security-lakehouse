@@ -5,6 +5,17 @@ serving requests. On lakes with tens of thousands of objects it can exhaust the
 shared S3 path and make readiness or Prometheus scrapes time out. The homelab
 backfill is currently paused pending an isolated, rate-limited maintenance job.
 
+Build the PostgreSQL query catalog in an ephemeral maintenance container:
+
+```bash
+./scripts/rebuild-object-catalog.sh
+```
+
+The command marks the catalog unavailable while rebuilding, reads existing
+sidecars with two workers, and publishes readiness only after the database commit.
+Ingestion continues normally. Bounded investigations use the legacy conservative
+path until readiness is published, then avoid full S3 listings.
+
 Compaction reduces investigation latency by combining the many small normalized Parquet
 objects created by ingestion. Raw evidence, quarantine objects, and original normalized
 batch objects are not deleted. This first phase is deliberately non-destructive.

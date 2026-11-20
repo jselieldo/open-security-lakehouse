@@ -122,6 +122,7 @@ def test_compaction_records_event_time_bounds(monkeypatch) -> None:
         "app.compaction.put_object",
         lambda key, body, _type: objects.__setitem__(key, body),
     )
+    monkeypatch.setattr("app.compaction.replace_compacted_objects", lambda *_args: None)
     result = compact_partition(PartitionPlan(partition, "windows", "2026-11-16", 2, tuple(keys)))
     assert result["compact_event_time_bounds"] == {
         "min_event_time": "2026-11-15T12:00:00+00:00",

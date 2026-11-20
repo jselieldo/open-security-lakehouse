@@ -11,7 +11,9 @@ from hashlib import sha256
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from .database import SessionLocal
 from .event_index import event_time_bounds
+from .object_catalog import replace_compacted_objects
 from .storage import get_object_bytes, list_object_keys, put_object
 
 PARTITION_PATTERN = re.compile(
@@ -126,6 +128,20 @@ def compact_partition(plan: PartitionPlan) -> dict[str, object]:
         json.dumps(manifest, separators=(",", ":")).encode(),
         "application/json",
     )
+    bounds = manifest.get("compact_event_time_bounds")
+    if isinstance(bounds, dict):
+        with SessionLocal() as db:
+            replace_compacted_objects(
+                source_keys,
+                [{
+                    "object_key": compact_key,
+                    "min_event_time": bounds["min_event_time"],
+                    "max_event_time": bounds["max_event_time"],
+                    "row_count": table.num_rows,
+                }],
+                db,
+            )
+            db.commit()
     return manifest
 
 

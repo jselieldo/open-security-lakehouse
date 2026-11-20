@@ -17,6 +17,7 @@ from .database import IngestionBatch
 from .event_index import event_time_bounds
 from .metrics import INGESTION_BATCHES, INGESTION_DURATION, INGESTION_EVENTS
 from .normalization import normalize_events
+from .object_catalog import register_lake_object
 from .schemas import BatchStatusResponse, IngestionRequest, IngestionResponse
 from .sources import record_source_batch
 from .storage import put_object
@@ -79,13 +80,22 @@ def ingest_batch(payload: IngestionRequest, db: Session) -> IngestionResponse:
         if normalized:
             put_object(normalized_key, _parquet_bytes(normalized), "application/vnd.apache.parquet")
             batch.normalized_object_key = normalized_key
+            bounds = event_time_bounds([row["event_time"] for row in normalized])
             put_object(
                 f"{normalized_key}.index.json",
                 _json_bytes({
                     "version": 1,
-                    **event_time_bounds([row["event_time"] for row in normalized]),
+                    **bounds,
                 }),
                 "application/json",
+            )
+            register_lake_object(
+                normalized_key,
+                payload.source,
+                datetime.fromisoformat(bounds["min_event_time"]),
+                datetime.fromisoformat(bounds["max_event_time"]),
+                db,
+                len(normalized),
             )
         if rejected:
             quarantine_document = {
