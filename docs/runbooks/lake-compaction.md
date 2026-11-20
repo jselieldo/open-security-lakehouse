@@ -31,6 +31,10 @@ lookups add small object reads but can avoid much larger Parquet downloads. This
 an indexed catalog or partition pruning at S3 listing time: searches still list all keys
 under the selected source and load remaining Parquet objects into memory. Do not infer event
 time from the directory date, which is the ingestion date and may differ for late arrivals.
+For a one-time safe backfill after upgrading a legacy lake, run
+`docker compose exec -T api python -m app.event_index_backfill`. The command adds
+only missing `.index.json` sidecars and never rewrites Parquet telemetry. Repeating
+it is safe; verify the reported examined, created and skipped counts.
 Events arriving after the compaction snapshot are read alongside the compacted object, so an
 operator may explicitly include the active day by passing tomorrow's UTC date to `--before`.
 The safe default still excludes the active day.

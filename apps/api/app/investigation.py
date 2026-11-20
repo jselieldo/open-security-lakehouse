@@ -123,7 +123,7 @@ def _prune_by_event_time(
         bounds = None
         if key in manifest.get("compact_objects", []):
             bounds = manifest.get("compact_event_time_bounds")
-        elif f"{key}.index.json" in available:
+        if bounds is None and f"{key}.index.json" in available:
             try:
                 bounds = json.loads(get_object_bytes(f"{key}.index.json"))
                 if not isinstance(bounds, dict) or bounds.get("version") != 1:

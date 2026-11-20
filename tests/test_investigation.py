@@ -157,6 +157,39 @@ def test_compaction_bounds_skip_compact_but_include_new_batch(monkeypatch) -> No
     assert new in reads
 
 
+def test_legacy_compact_object_uses_backfilled_sidecar(monkeypatch) -> None:
+    partition = "normalized/source=linux/year=2026/month=11/day=18"
+    compact = f"{partition}/compact=legacy-0000.parquet"
+    original = f"{partition}/batch=original.parquet"
+    manifest = f"{partition}/_compaction.json"
+    sidecar = f"{compact}.index.json"
+    objects = {
+        compact: parquet_bytes([rows()[1]]),
+        original: parquet_bytes([rows()[1]]),
+        manifest: json.dumps({
+            "source_objects": [original], "compact_objects": [compact]
+        }).encode(),
+        sidecar: json.dumps({
+            "version": 1,
+            "min_event_time": "2026-11-16T11:00:00+00:00",
+            "max_event_time": "2026-11-16T11:00:00+00:00",
+        }).encode(),
+    }
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: list(objects))
+    reads = []
+
+    def read(key):
+        reads.append(key)
+        return objects[key]
+
+    monkeypatch.setattr("app.investigation.get_object_bytes", read)
+    result = investigate(
+        InvestigationRequest(start_time=datetime(2026, 11, 16, 11, 30, tzinfo=UTC))
+    )
+    assert result.scanned_objects == 0
+    assert compact not in reads
+
+
 def test_empty_lake_returns_empty_result(monkeypatch) -> None:
     monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: [])
     result = investigate(InvestigationRequest(src_ip="192.0.2.1"))
