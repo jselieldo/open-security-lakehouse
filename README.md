@@ -56,7 +56,10 @@ docker compose up --build --wait
 docker compose ps
 ```
 
-The API and Keycloak are exposed on loopback at `http://127.0.0.1:8000` and `http://127.0.0.1:8080`. PostgreSQL and SeaweedFS remain private.
+The API is exposed on loopback at `http://127.0.0.1:8000`. Keycloak listens on
+the homelab loopback port `8080` but advertises the operator-facing origin
+`http://127.0.0.1:18080`, avoiding Windows-reserved port conflicts. PostgreSQL
+and SeaweedFS remain private.
 
 The single-host SeaweedFS volume server permits up to 64 one-GiB volumes by default (`SEAWEED_VOLUME_MAX`). Monitor host free space and increase this setting deliberately as retention grows. If ingestion reports `No writable volumes and no free volumes left` while the host still has free space, raise this limit and recreate only the `seaweed-volume` service; existing named-volume data is preserved.
 
@@ -142,7 +145,7 @@ Prometheus is available on `http://127.0.0.1:9090` and Grafana on `http://127.0.
 ```bash
 ssh \
   -L 8000:127.0.0.1:8000 \
-  -L 8080:127.0.0.1:8080 \
+  -L 18080:127.0.0.1:8080 \
   -L 9090:127.0.0.1:9090 \
   -L 3000:127.0.0.1:3000 \
   homelab-lan
@@ -249,7 +252,7 @@ Webhook failures are recorded in PostgreSQL and never cancel the detection run.
 The console is available at `http://127.0.0.1:8000/console/`. From another computer, keep the API private and use an SSH tunnel:
 
 ```bash
-ssh -L 8000:127.0.0.1:8000 -L 8080:127.0.0.1:8080 homelab-lan
+ssh -L 8000:127.0.0.1:8000 -L 18080:127.0.0.1:8080 homelab-lan
 ```
 
 Open `http://127.0.0.1:8000/console/`, choose **Entrar com OIDC**, and authenticate through Keycloak. The console uses Authorization Code with PKCE and keeps the access token only in browser `sessionStorage`.

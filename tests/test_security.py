@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -71,3 +72,14 @@ def test_collector_token_is_scoped_to_ingestion() -> None:
     assert collector.roles == frozenset({"ingestor"})
     assert collector.auth_method == "collector_token"
     assert _collector_principal("wrong") is None
+
+
+def test_oidc_public_origin_avoids_reserved_windows_port() -> None:
+    root = Path(__file__).parents[1]
+    compose = (root / "compose.yaml").read_text()
+    example = (root / ".env.example").read_text()
+    token_script = (root / "scripts" / "get-access-token.sh").read_text()
+    assert "--hostname=${OIDC_PUBLIC_ORIGIN:-http://127.0.0.1:18080}" in compose
+    assert "OIDC_ISSUER_URL=http://127.0.0.1:18080/realms/osl" in example
+    assert "OIDC_TOKEN_URL=http://127.0.0.1:8080/realms/osl" in example
+    assert "OIDC_TOKEN_URL" in token_script

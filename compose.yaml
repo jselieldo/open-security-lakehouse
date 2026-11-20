@@ -133,7 +133,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.2
     restart: unless-stopped
-    command: ["start-dev", "--import-realm", "--health-enabled=true", "--hostname=http://127.0.0.1:8080"]
+    command: ["start-dev", "--import-realm", "--health-enabled=true", "--hostname=${OIDC_PUBLIC_ORIGIN:-http://127.0.0.1:18080}"]
     environment:
       KC_DB: postgres
       KC_DB_URL_HOST: keycloak-db
@@ -290,7 +290,7 @@ services:
       OSL_API_TOKEN: ${OSL_API_TOKEN:?Set OSL_API_TOKEN in .env}
       COLLECTOR_API_TOKEN: ${COLLECTOR_API_TOKEN:?Set COLLECTOR_API_TOKEN in .env}
       AUTH_MODE: ${AUTH_MODE:-oidc}
-      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://127.0.0.1:8080/realms/osl}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://127.0.0.1:18080/realms/osl}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/osl/protocol/openid-connect/certs}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-osl-api}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-osl-console}
@@ -335,7 +335,7 @@ services:
       OSL_API_TOKEN: ${OSL_API_TOKEN:?Set OSL_API_TOKEN in .env}
       COLLECTOR_API_TOKEN: ${COLLECTOR_API_TOKEN:?Set COLLECTOR_API_TOKEN in .env}
       AUTH_MODE: ${AUTH_MODE:-oidc}
-      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://127.0.0.1:8080/realms/osl}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://127.0.0.1:18080/realms/osl}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/osl/protocol/openid-connect/certs}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-osl-api}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-osl-console}

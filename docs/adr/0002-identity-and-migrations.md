@@ -14,7 +14,7 @@ Use Alembic 1.20.0 for database revisions. The baseline revision safely adopts t
 
 ## Security boundary
 
-The legacy static token is accepted only in explicit `static` or transitional `hybrid` mode. Normal operation uses `oidc`. Ports 8000 and 8080 bind to loopback; remote operators use an SSH tunnel. The bundled Keycloak `start-dev` configuration is not approved for direct internet exposure.
+The legacy static token is accepted only in explicit `static` or transitional `hybrid` mode. Normal operation uses `oidc`. API port 8000 and Keycloak port 8080 bind to the homelab loopback; remote operators map Keycloak to local port 18080 through SSH, which is also its advertised public origin. The bundled Keycloak `start-dev` configuration is not approved for direct internet exposure.
 
 ## Licenses
 
