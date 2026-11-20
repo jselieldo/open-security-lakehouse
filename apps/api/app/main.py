@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .assets import get_asset, list_assets, update_asset
+from .assets import get_asset, get_asset_activity, list_assets, update_asset
 from .config import get_settings
 from .database import (
     Alert,
@@ -50,6 +50,7 @@ from .schemas import (
     AlertDetailResponse,
     AlertResponse,
     AlertUpdateRequest,
+    AssetActivityResponse,
     AssetResponse,
     AssetUpdateRequest,
     AuditLogResponse,
@@ -314,6 +315,27 @@ def read_asset(
     if asset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
     return asset
+
+
+@app.get(
+    "/api/v1/assets/{asset_id}/activity",
+    response_model=AssetActivityResponse,
+    tags=["assets"],
+)
+def read_asset_activity(
+    asset_id: str,
+    _: Annotated[Principal, Depends(require_roles("viewer", "analyst"))],
+    limit: int = 100,
+    db: Session = Depends(get_db),
+) -> AssetActivityResponse:
+    if limit < 1 or limit > 500:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid limit"
+        )
+    activity = get_asset_activity(asset_id, db, limit)
+    if activity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
+    return activity
 
 
 @app.patch("/api/v1/assets/{asset_id}", response_model=AssetResponse, tags=["assets"])

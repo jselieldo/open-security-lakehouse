@@ -156,6 +156,13 @@
             <p class="muted">Ativos são derivados da telemetria recebida. Hostnames declarados pelas fontes ainda precisam de validação operacional.</p>
             <div id="assets-list" class="asset-grid"></div>
           </article>
+          <article id="asset-detail" class="panel asset-detail hidden" aria-live="polite">
+            <div class="panel-head"><div><p class="eyebrow">HISTÓRICO DO ATIVO</p><h3 id="asset-detail-title">Ativo</h3><p id="asset-detail-summary" class="muted"></p></div><button id="close-asset-detail" class="icon-button" type="button" aria-label="Fechar histórico">×</button></div>
+            <div class="asset-activity-layout">
+              <section><h4>Mudanças observadas</h4><div id="asset-change-list" class="activity-list"></div></section>
+              <section><h4>Alertas relacionados</h4><div id="asset-alert-list" class="activity-list"></div></section>
+            </div>
+          </article>
         </section>
       </main>
     </div>

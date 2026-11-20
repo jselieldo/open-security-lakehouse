@@ -68,5 +68,10 @@ def test_asset_console_exposes_inventory_and_investigation() -> None:
     assert "investigateAsset" in javascript
     assert "saveAssetContext" in javascript
     assert "asset_criticality" in javascript
+    assert "loadAssetActivity" in javascript
+    assert "/activity?limit=100" in javascript
+    assert 'id="asset-detail"' in html
+    assert 'id="asset-change-list"' in html
+    assert 'id="asset-alert-list"' in html
     assert "24 * 60 * 60 * 1000" in javascript
     assert ".asset-grid" in styles

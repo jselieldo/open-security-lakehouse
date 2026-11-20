@@ -100,6 +100,16 @@ class AssetUpdateRequest(BaseModel):
         return list(dict.fromkeys(cleaned))
 
 
+class AssetChangeResponse(BaseModel):
+    change_id: str
+    change_type: str
+    old_value: str | None
+    new_value: str
+    source: str
+    observed_at: datetime
+    alert_id: str | None
+
+
 class InvestigationRequest(BaseModel):
     src_ip: str | None = None
     source: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9._-]*$")
@@ -230,6 +240,12 @@ class AlertResponse(BaseModel):
     created_at: str
     updated_at: str
     resolved_at: str | None = None
+
+
+class AssetActivityResponse(BaseModel):
+    asset: AssetResponse
+    changes: list[AssetChangeResponse]
+    alerts: list[AlertResponse]
 
 
 class AlertUpdateRequest(BaseModel):

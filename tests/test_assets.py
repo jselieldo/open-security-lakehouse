@@ -1,9 +1,16 @@
 from datetime import UTC, datetime
 
 import pytest
-from app.assets import correlate_asset, get_asset, list_assets, record_assets, update_asset
+from app.assets import (
+    correlate_asset,
+    get_asset,
+    get_asset_activity,
+    list_assets,
+    record_assets,
+    update_asset,
+)
 from app.database import Base
-from app.main import app, patch_asset, read_asset, read_assets
+from app.main import app, patch_asset, read_asset, read_asset_activity, read_assets
 from app.schemas import AssetUpdateRequest
 from app.security import Principal
 from fastapi import HTTPException
@@ -49,6 +56,14 @@ def test_observed_assets_are_deduplicated_and_enriched() -> None:
         assert updated.owner == "SOC"
         assert updated.aliases == ["home-lab"]
         assert correlate_asset([normalized()], db).asset_id == assets[0].asset_id
+        activity = get_asset_activity(assets[0].asset_id, db)
+        assert activity is not None
+        assert activity.asset.asset_id == assets[0].asset_id
+        assert {item.change_type for item in activity.changes} == {
+            "new_asset",
+            "new_ip",
+            "new_source",
+        }
 
 
 def test_ip_only_asset_is_supported_without_trusting_event_body_storage() -> None:
@@ -67,6 +82,7 @@ def test_asset_public_endpoints_and_not_found() -> None:
     paths = {route.path for route in app.routes}
     assert "/api/v1/assets" in paths
     assert "/api/v1/assets/{asset_id}" in paths
+    assert "/api/v1/assets/{asset_id}/activity" in paths
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -81,6 +97,13 @@ def test_asset_public_endpoints_and_not_found() -> None:
             db,
         )
         assert changed.criticality == "high"
+        activity = read_asset_activity(
+            result[0].asset_id, None, 100, db  # type: ignore[arg-type]
+        )
+        assert activity.asset.criticality == "high"
+        with pytest.raises(HTTPException) as invalid_limit:
+            read_asset_activity(result[0].asset_id, None, 0, db)  # type: ignore[arg-type]
+        assert invalid_limit.value.status_code == 422
         with pytest.raises(HTTPException) as missing:
             read_asset("missing", None, db)  # type: ignore[arg-type]
         assert missing.value.status_code == 404
@@ -130,3 +153,9 @@ def test_asset_endpoint_reports_dependency_failure(monkeypatch) -> None:
         patch_asset(
             "asset", AssetUpdateRequest(criticality="high"), None, None
         )  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        "app.main.get_asset_activity",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("db down")),
+    )
+    with pytest.raises(RuntimeError, match="db down"):
+        read_asset_activity("asset", None, 100, None)  # type: ignore[arg-type]

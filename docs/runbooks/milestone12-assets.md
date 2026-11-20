@@ -15,6 +15,7 @@ filtered by hostname or, for IP-only assets, by source IP. API access requires t
 ```text
 GET /api/v1/assets
 GET /api/v1/assets/{asset_id}
+GET /api/v1/assets/{asset_id}/activity
 PATCH /api/v1/assets/{asset_id}   (admin)
 ```
 
@@ -29,6 +30,11 @@ It creates `asset-new` alerts for newly observed assets and
 new telemetry source. Evidence is written under `artifacts/asset-observations/`.
 Sources prefixed with `test-` update their test inventory context but never queue
 these operational alerts. A storage failure leaves the change pending for retry.
+
+The **Ativos** view exposes a detail panel with the latest 100 observed changes
+and related alerts. It contains only control-plane metadata and links to alert
+triage; full event payloads remain available through investigation and immutable
+evidence in object storage.
 
 The console starts an asset timeline with a 24-hour window to avoid an accidental
 full-lake scan. Analysts may change or remove that period explicitly. Older

@@ -6,8 +6,13 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .database import Asset, AssetChange
-from .schemas import AssetResponse, AssetUpdateRequest
+from .database import Alert, Asset, AssetChange
+from .schemas import (
+    AssetActivityResponse,
+    AssetChangeResponse,
+    AssetResponse,
+    AssetUpdateRequest,
+)
 
 
 def _asset_kind(source: str) -> str:
@@ -158,3 +163,41 @@ def correlate_asset(events: list[dict], db: Session) -> Asset | None:
     identity_type, identity_value = next(iter(identities))
     asset_id = sha256(f"{identity_type}:{identity_value}".encode()).hexdigest()
     return db.get(Asset, asset_id)
+
+
+def get_asset_activity(
+    asset_id: str, db: Session, limit: int = 100
+) -> AssetActivityResponse | None:
+    from .detection import alert_response
+
+    asset = db.get(Asset, asset_id)
+    if asset is None:
+        return None
+    changes = db.scalars(
+        select(AssetChange)
+        .where(AssetChange.asset_id == asset_id)
+        .order_by(AssetChange.observed_at.desc())
+        .limit(limit)
+    ).all()
+    alerts = db.scalars(
+        select(Alert)
+        .where(Alert.asset_id == asset_id)
+        .order_by(Alert.created_at.desc())
+        .limit(limit)
+    ).all()
+    return AssetActivityResponse(
+        asset=asset_response(asset),
+        changes=[
+            AssetChangeResponse(
+                change_id=item.change_id,
+                change_type=item.change_type,
+                old_value=item.old_value,
+                new_value=item.new_value,
+                source=item.source,
+                observed_at=item.observed_at,
+                alert_id=item.alert_id,
+            )
+            for item in changes
+        ],
+        alerts=[alert_response(item) for item in alerts],
+    )
