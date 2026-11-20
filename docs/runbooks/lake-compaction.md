@@ -24,6 +24,13 @@ Create and verify the compacted objects, then publish their manifests:
 The manifest is written last. Investigation continues to read original batch objects until
 that marker exists, and then reads only the compacted object for the partition. If an upload
 or verification fails, the marker is not published and queries remain on the originals.
+New compaction manifests include minimum and maximum **event** times for indexed time-range
+searches. New ingestion batches write optional `.parquet.index.json` sidecars. Missing or
+invalid bounds leave an object eligible for search; old objects need no migration. Index
+lookups add small object reads but can avoid much larger Parquet downloads. This is not yet
+an indexed catalog or partition pruning at S3 listing time: searches still list all keys
+under the selected source and load remaining Parquet objects into memory. Do not infer event
+time from the directory date, which is the ingestion date and may differ for late arrivals.
 Events arriving after the compaction snapshot are read alongside the compacted object, so an
 operator may explicitly include the active day by passing tomorrow's UTC date to `--before`.
 The safe default still excludes the active day.

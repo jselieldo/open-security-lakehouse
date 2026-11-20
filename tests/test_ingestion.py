@@ -79,6 +79,9 @@ def test_ingestion_writes_raw_normalized_and_quarantine(db: Session, monkeypatch
     raw = json.loads(objects[response.raw_object_key][0])
     assert len(raw["events"]) == 2
     assert objects[response.normalized_object_key][1] == "application/vnd.apache.parquet"
+    index = json.loads(objects[f"{response.normalized_object_key}.index.json"][0])
+    assert index["min_event_time"] == "2026-11-15T12:00:00+00:00"
+    assert index["max_event_time"] == "2026-11-15T12:00:00+00:00"
 
 
 def test_idempotent_replay_does_not_write_again(db: Session, monkeypatch) -> None:

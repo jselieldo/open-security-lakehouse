@@ -1,4 +1,5 @@
 import io
+import json
 from datetime import UTC, datetime, timedelta
 
 import pyarrow as pa
@@ -72,6 +73,88 @@ def test_investigation_filters_time_range(monkeypatch) -> None:
         InvestigationRequest(start_time=datetime(2026, 11, 16, 11, 30, tzinfo=UTC))
     )
     assert [event["event_id"] for event in result.events] == ["evt-high"]
+
+
+def test_event_time_index_skips_unrelated_objects_even_when_ingested_later(monkeypatch) -> None:
+    old = "normalized/source=linux/year=2026/month=11/day=18/batch=old.parquet"
+    late = "normalized/source=linux/year=2026/month=11/day=18/batch=late.parquet"
+    objects = {
+        old: parquet_bytes([rows()[1]]),
+        late: parquet_bytes([rows()[0]]),
+        f"{old}.index.json": json.dumps({
+            "version": 1, "min_event_time": "2026-11-16T11:00:00+00:00",
+            "max_event_time": "2026-11-16T11:00:00+00:00",
+        }).encode(),
+        f"{late}.index.json": json.dumps({
+            "version": 1, "min_event_time": "2026-11-16T12:00:00+00:00",
+            "max_event_time": "2026-11-16T12:00:00+00:00",
+        }).encode(),
+    }
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: list(objects))
+    reads = []
+
+    def read(key):
+        reads.append(key)
+        return objects[key]
+
+    monkeypatch.setattr("app.investigation.get_object_bytes", read)
+    result = investigate(
+        InvestigationRequest(start_time=datetime(2026, 11, 16, 11, 30, tzinfo=UTC))
+    )
+    assert result.scanned_objects == 1
+    assert result.total_count == 1
+    assert old not in reads
+    assert late in reads
+
+
+def test_missing_or_malformed_index_keeps_parquet_in_search(monkeypatch) -> None:
+    key = "normalized/source=linux/year=2026/month=11/day=18/batch=legacy.parquet"
+    objects = {
+        key: parquet_bytes(rows()),
+        f"{key}.index.json": b'{"version":1,"min_event_time":"bad"}',
+    }
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: list(objects))
+    monkeypatch.setattr("app.investigation.get_object_bytes", lambda candidate: objects[candidate])
+    result = investigate(
+        InvestigationRequest(start_time=datetime(2026, 11, 16, 11, 30, tzinfo=UTC))
+    )
+    assert result.scanned_objects == 1
+    assert result.total_count == 1
+
+
+def test_compaction_bounds_skip_compact_but_include_new_batch(monkeypatch) -> None:
+    partition = "normalized/source=synthetic-linux/year=2026/month=11/day=18"
+    compact = f"{partition}/compact=abc-0000.parquet"
+    original = f"{partition}/batch=original.parquet"
+    new = f"{partition}/batch=new.parquet"
+    manifest = f"{partition}/_compaction.json"
+    objects = {
+        compact: parquet_bytes([rows()[1]]),
+        original: parquet_bytes([rows()[1]]),
+        new: parquet_bytes([rows()[0]]),
+        manifest: json.dumps({
+            "source_objects": [original], "compact_objects": [compact],
+            "compact_event_time_bounds": {
+                "min_event_time": "2026-11-16T11:00:00+00:00",
+                "max_event_time": "2026-11-16T11:00:00+00:00",
+            },
+        }).encode(),
+    }
+    monkeypatch.setattr("app.investigation.list_object_keys", lambda _prefix: list(objects))
+    reads = []
+
+    def read(key):
+        reads.append(key)
+        return objects[key]
+
+    monkeypatch.setattr("app.investigation.get_object_bytes", read)
+    result = investigate(
+        InvestigationRequest(start_time=datetime(2026, 11, 16, 11, 30, tzinfo=UTC))
+    )
+    assert result.total_count == 1
+    assert result.scanned_objects == 1
+    assert compact not in reads
+    assert new in reads
 
 
 def test_empty_lake_returns_empty_result(monkeypatch) -> None:

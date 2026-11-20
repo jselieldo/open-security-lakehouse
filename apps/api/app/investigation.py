@@ -5,7 +5,9 @@ from time import perf_counter
 import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
+from botocore.exceptions import ClientError
 
+from .event_index import outside_time_range
 from .metrics import INVESTIGATION_DURATION
 from .schemas import InvestigationRequest, InvestigationResponse
 from .storage import get_object_bytes, list_object_keys
@@ -32,7 +34,9 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
     started = perf_counter()
     prefix = f"normalized/source={request.source}/" if request.source else "normalized/"
     all_keys = list_object_keys(prefix)
-    keys = _select_query_objects(all_keys, _load_compaction_manifests(all_keys))
+    manifests = _load_compaction_manifests(all_keys)
+    keys = _select_query_objects(all_keys, manifests)
+    keys = _prune_by_event_time(keys, all_keys, manifests, request)
     table = _load_tables(keys)
     sql, parameters = _build_query(request)
     count_sql, count_parameters = _build_count_query(request)
@@ -103,6 +107,32 @@ def _select_query_objects(
         else:
             selected.extend(key for key in objects if "/compact=" not in key)
     return sorted(selected)
+
+
+def _prune_by_event_time(
+    keys: list[str], all_keys: list[str], manifests: dict[str, dict[str, object]],
+    request: InvestigationRequest,
+) -> list[str]:
+    if request.start_time is None and request.end_time is None:
+        return keys
+    available = set(all_keys)
+    selected = []
+    for key in keys:
+        partition = key.rsplit("/", 1)[0]
+        manifest = manifests.get(partition, {})
+        bounds = None
+        if key in manifest.get("compact_objects", []):
+            bounds = manifest.get("compact_event_time_bounds")
+        elif f"{key}.index.json" in available:
+            try:
+                bounds = json.loads(get_object_bytes(f"{key}.index.json"))
+                if not isinstance(bounds, dict) or bounds.get("version") != 1:
+                    bounds = None
+            except (ClientError, json.JSONDecodeError, OSError, ValueError):
+                pass
+        if not outside_time_range(bounds, request.start_time, request.end_time):
+            selected.append(key)
+    return selected
 
 
 def _load_tables(keys: list[str]) -> pa.Table:

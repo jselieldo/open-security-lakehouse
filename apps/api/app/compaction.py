@@ -11,6 +11,7 @@ from hashlib import sha256
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from .event_index import event_time_bounds
 from .storage import get_object_bytes, list_object_keys, put_object
 
 PARTITION_PATTERN = re.compile(
@@ -114,6 +115,12 @@ def compact_partition(plan: PartitionPlan) -> dict[str, object]:
         "row_count": table.num_rows,
         "parquet_bytes": len(body),
     }
+    if (
+        "event_time" in table.column_names
+        and table.num_rows
+        and table["event_time"].null_count == 0
+    ):
+        manifest["compact_event_time_bounds"] = event_time_bounds(table["event_time"].to_pylist())
     put_object(
         f"{plan.partition}/{MANIFEST_NAME}",
         json.dumps(manifest, separators=(",", ":")).encode(),

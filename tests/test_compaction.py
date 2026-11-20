@@ -1,6 +1,6 @@
 import io
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -103,6 +103,30 @@ def test_compaction_failure_does_not_publish_manifest(monkeypatch) -> None:
             )
         )
     assert not any(key.endswith("_compaction.json") for key in writes)
+
+
+def test_compaction_records_event_time_bounds(monkeypatch) -> None:
+    partition = "normalized/source=windows/year=2026/month=11/day=16"
+    keys = [f"{partition}/batch={index}.parquet" for index in range(2)]
+    objects = {}
+    for index, key in enumerate(keys):
+        table = pa.Table.from_pylist([{
+            "event_id": str(index),
+            "event_time": datetime(2026, 11, 15 + index, 12, tzinfo=UTC),
+        }])
+        buffer = io.BytesIO()
+        pq.write_table(table, buffer)
+        objects[key] = buffer.getvalue()
+    monkeypatch.setattr("app.compaction.get_object_bytes", lambda key: objects[key])
+    monkeypatch.setattr(
+        "app.compaction.put_object",
+        lambda key, body, _type: objects.__setitem__(key, body),
+    )
+    result = compact_partition(PartitionPlan(partition, "windows", "2026-11-16", 2, tuple(keys)))
+    assert result["compact_event_time_bounds"] == {
+        "min_event_time": "2026-11-15T12:00:00+00:00",
+        "max_event_time": "2026-11-16T12:00:00+00:00",
+    }
 
 
 def test_investigation_prefers_compact_objects_only_after_manifest() -> None:

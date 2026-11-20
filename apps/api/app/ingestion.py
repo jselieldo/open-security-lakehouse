@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import IngestionBatch
+from .event_index import event_time_bounds
 from .metrics import INGESTION_BATCHES, INGESTION_DURATION, INGESTION_EVENTS
 from .normalization import normalize_events
 from .schemas import BatchStatusResponse, IngestionRequest, IngestionResponse
@@ -77,6 +78,14 @@ def ingest_batch(payload: IngestionRequest, db: Session) -> IngestionResponse:
         if normalized:
             put_object(normalized_key, _parquet_bytes(normalized), "application/vnd.apache.parquet")
             batch.normalized_object_key = normalized_key
+            put_object(
+                f"{normalized_key}.index.json",
+                _json_bytes({
+                    "version": 1,
+                    **event_time_bounds([row["event_time"] for row in normalized]),
+                }),
+                "application/json",
+            )
         if rejected:
             quarantine_document = {
                 "batch_id": payload.batch_id,
