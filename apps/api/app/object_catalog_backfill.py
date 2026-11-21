@@ -3,7 +3,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from .database import LakeObject, PlatformState, SessionLocal
 from .investigation import _load_compaction_manifests, _select_query_objects
@@ -13,10 +13,10 @@ from .storage import get_object_bytes, list_object_keys
 SOURCE_PATTERN = re.compile(r"^normalized/source=([^/]+)/")
 
 
-def _entry(key: str) -> dict[str, object]:
-    bounds = json.loads(get_object_bytes(f"{key}.index.json"))
+def _entry(key: str, known_bounds: dict[str, object] | None = None) -> dict[str, object]:
+    bounds = known_bounds or json.loads(get_object_bytes(f"{key}.index.json"))
     match = SOURCE_PATTERN.match(key)
-    if match is None or bounds.get("version") != 1:
+    if match is None or (known_bounds is None and bounds.get("version") != 1):
         raise ValueError(f"invalid catalog source object: {key}")
     return {
         "object_key": key,
@@ -41,10 +41,21 @@ def rebuild_object_catalog(workers: int = 2) -> dict[str, int]:
     keys = list_object_keys("normalized/")
     manifests = _load_compaction_manifests(keys)
     parquet = _select_query_objects(keys, manifests)
+    compact_bounds: dict[str, dict[str, object]] = {}
+    for manifest in manifests.values():
+        bounds = manifest.get("compact_event_time_bounds")
+        if not isinstance(bounds, dict):
+            continue
+        for key in manifest.get("compact_objects", []):
+            if isinstance(key, str):
+                compact_bounds[key] = bounds
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        entries = list(executor.map(_entry, parquet))
+        entries = list(
+            executor.map(lambda key: _entry(key, compact_bounds.get(key)), parquet)
+        )
 
     with SessionLocal() as db:
+        db.execute(update(LakeObject).values(active=False))
         existing = {
             item.object_key: item for item in db.scalars(select(LakeObject)).all()
         }

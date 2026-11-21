@@ -30,6 +30,7 @@ class PartitionPlan:
     partition_date: str
     source_objects: int
     source_keys: tuple[str, ...]
+    superseded_compact_keys: tuple[str, ...] = ()
 
 
 def plan_compaction(
@@ -64,6 +65,7 @@ def plan_compaction(
         if not match:
             continue
         manifest = manifests.get(partition)
+        superseded_compact_keys: tuple[str, ...] = ()
         if manifest:
             covered = {
                 str(key)
@@ -71,6 +73,13 @@ def plan_compaction(
                 if isinstance(key, str)
             }
             eligible_count = len(set(objects) - covered)
+            superseded_compact_keys = tuple(
+                sorted(
+                    str(key)
+                    for key in manifest.get("compact_objects", [])
+                    if isinstance(key, str)
+                )
+            )
         else:
             eligible_count = len(objects)
         if eligible_count < minimum_objects:
@@ -87,6 +96,7 @@ def plan_compaction(
                 partition_date=partition_date.isoformat(),
                 source_objects=len(objects),
                 source_keys=tuple(sorted(objects)),
+                superseded_compact_keys=superseded_compact_keys,
             )
         )
     return plans
@@ -132,7 +142,7 @@ def compact_partition(plan: PartitionPlan) -> dict[str, object]:
     if isinstance(bounds, dict):
         with SessionLocal() as db:
             replace_compacted_objects(
-                source_keys,
+                source_keys + list(plan.superseded_compact_keys),
                 [{
                     "object_key": compact_key,
                     "min_event_time": bounds["min_event_time"],

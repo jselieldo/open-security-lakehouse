@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.database import Base, LakeObject, PlatformState
 from app.object_catalog import CATALOG_READY_KEY, catalog_keys
-from app.object_catalog_backfill import rebuild_object_catalog
+from app.object_catalog_backfill import _entry, rebuild_object_catalog
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,18 @@ def test_catalog_backfill_isolated_and_marks_ready(monkeypatch) -> None:
         "max_event_time": "2026-11-20T12:01:00+00:00",
     }
     monkeypatch.setattr("app.object_catalog_backfill.SessionLocal", lambda: Session(engine))
+    stale = "normalized/source=linux/year=2026/month=11/day=19/compact=old.parquet"
+    with Session(engine) as db:
+        db.add(
+            LakeObject(
+                object_key=stale,
+                source="linux",
+                min_event_time=datetime(2026, 11, 19, tzinfo=UTC),
+                max_event_time=datetime(2026, 11, 19, 1, tzinfo=UTC),
+                active=True,
+            )
+        )
+        db.commit()
     monkeypatch.setattr(
         "app.object_catalog_backfill.list_object_keys",
         lambda _prefix: [parquet, f"{parquet}.index.json"],
@@ -60,6 +72,7 @@ def test_catalog_backfill_isolated_and_marks_ready(monkeypatch) -> None:
     with Session(engine) as db:
         assert db.get(PlatformState, CATALOG_READY_KEY).value == "1"
         assert db.get(LakeObject, parquet).source == "linux"
+        assert db.get(LakeObject, stale).active is False
 
 
 def test_catalog_backfill_limits_parallelism() -> None:
@@ -69,3 +82,20 @@ def test_catalog_backfill_limits_parallelism() -> None:
         assert "between 1 and 4" in str(exc)
     else:
         raise AssertionError("unsafe catalog backfill concurrency was accepted")
+
+
+def test_catalog_entry_accepts_verified_compaction_bounds(monkeypatch) -> None:
+    key = "normalized/source=linux/year=2026/month=11/day=20/compact=a.parquet"
+    monkeypatch.setattr(
+        "app.object_catalog_backfill.get_object_bytes",
+        lambda _key: (_ for _ in ()).throw(AssertionError("sidecar should not be read")),
+    )
+    entry = _entry(
+        key,
+        {
+            "min_event_time": "2026-11-20T12:00:00+00:00",
+            "max_event_time": "2026-11-20T12:01:00+00:00",
+        },
+    )
+    assert entry["object_key"] == key
+    assert entry["source"] == "linux"

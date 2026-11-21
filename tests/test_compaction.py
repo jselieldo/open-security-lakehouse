@@ -44,17 +44,24 @@ def test_plan_recompacts_partition_after_enough_late_objects() -> None:
     partition = "normalized/source=windows/year=2026/month=11/day=17"
     covered = [f"{partition}/batch={index}.parquet" for index in range(3)]
     late = [f"{partition}/batch=late-{index}.parquet" for index in range(2)]
+    previous_compact = f"{partition}/compact=previous-0000.parquet"
     keys = covered + late + [f"{partition}/_compaction.json"]
 
     plans = plan_compaction(
         date(2026, 11, 18),
         minimum_objects=2,
         keys=keys,
-        manifests={partition: {"source_objects": covered}},
+        manifests={
+            partition: {
+                "source_objects": covered,
+                "compact_objects": [previous_compact],
+            }
+        },
     )
 
     assert len(plans) == 1
     assert plans[0].source_keys == tuple(sorted(covered + late))
+    assert plans[0].superseded_compact_keys == (previous_compact,)
 
 
 def test_compaction_publishes_manifest_only_after_verified_object(monkeypatch) -> None:
@@ -122,12 +129,29 @@ def test_compaction_records_event_time_bounds(monkeypatch) -> None:
         "app.compaction.put_object",
         lambda key, body, _type: objects.__setitem__(key, body),
     )
-    monkeypatch.setattr("app.compaction.replace_compacted_objects", lambda *_args: None)
-    result = compact_partition(PartitionPlan(partition, "windows", "2026-11-16", 2, tuple(keys)))
+    replaced: list[str] = []
+
+    def record_replacement(objects, _compacts, _db) -> None:
+        replaced.extend(objects)
+
+    monkeypatch.setattr("app.compaction.replace_compacted_objects", record_replacement)
+    previous_compact = f"{partition}/compact=previous-0000.parquet"
+    result = compact_partition(
+        PartitionPlan(
+            partition,
+            "windows",
+            "2026-11-16",
+            2,
+            tuple(keys),
+            (previous_compact,),
+        )
+    )
     assert result["compact_event_time_bounds"] == {
         "min_event_time": "2026-11-15T12:00:00+00:00",
         "max_event_time": "2026-11-16T12:00:00+00:00",
     }
+    assert replaced == keys + [previous_compact]
+    assert previous_compact not in result["source_objects"]
 
 
 def test_investigation_prefers_compact_objects_only_after_manifest() -> None:
