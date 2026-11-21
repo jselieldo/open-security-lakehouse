@@ -1,5 +1,6 @@
 import io
 import json
+from concurrent.futures import ThreadPoolExecutor
 from time import perf_counter
 
 import duckdb
@@ -7,6 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from botocore.exceptions import ClientError
 
+from .config import get_settings
 from .event_index import outside_time_range
 from .metrics import INVESTIGATION_DURATION
 from .object_catalog import catalog_keys
@@ -143,15 +145,18 @@ def _prune_by_event_time(
 
 
 def _load_tables(keys: list[str]) -> pa.Table:
-    tables = []
-    for key in keys:
+    def load(key: str) -> pa.Table:
         table = pq.read_table(io.BytesIO(get_object_bytes(key)))
         for name in EMPTY_COLUMNS:
             if name not in table.column_names:
                 table = table.append_column(
                     name, pa.nulls(table.num_rows, type=EMPTY_COLUMNS[name].type)
                 )
-        tables.append(table)
+        return table
+
+    workers = min(get_settings().investigation_object_workers, max(1, len(keys)))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        tables = list(executor.map(load, keys))
     if not tables:
         return pa.table(EMPTY_COLUMNS)
     if len(tables) == 1:

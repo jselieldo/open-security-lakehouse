@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from app.investigation import investigate
+from app.investigation import _load_tables, investigate
 from app.schemas import InvestigationRequest
 from pydantic import ValidationError
 
@@ -93,6 +93,18 @@ def test_bounded_investigation_uses_catalog_without_s3_listing(monkeypatch) -> N
     )
     assert result.scanned_objects == 1
     assert result.total_count == 1
+
+
+def test_object_loading_uses_bounded_worker_setting(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.investigation.get_settings",
+        lambda: type("Settings", (), {"investigation_object_workers": 2})(),
+    )
+    monkeypatch.setattr(
+        "app.investigation.get_object_bytes", lambda _key: parquet_bytes(rows())
+    )
+    table = _load_tables(["one.parquet", "two.parquet", "three.parquet"])
+    assert table.num_rows == 6
 
 
 def test_event_time_index_skips_unrelated_objects_even_when_ingested_later(monkeypatch) -> None:
