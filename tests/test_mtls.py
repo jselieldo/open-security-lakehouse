@@ -105,5 +105,7 @@ def test_seaweed_volume_capacity_is_configurable_with_safe_homelab_default() -> 
 
 def test_encrypted_backup_includes_collector_authority() -> None:
     backup = (ROOT / "scripts" / "backup.sh").read_text()
+    assert "docker compose up -d --no-deps grafana" in backup
+    assert "docker compose start grafana" not in backup
     assert 'tar -C data/mtls -cf "$stage/mtls.tar" .' in backup
     assert "mtls.tar" in backup

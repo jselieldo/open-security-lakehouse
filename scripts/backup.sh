@@ -11,7 +11,9 @@ grafana_stopped=0
 
 cleanup() {
   rm -rf -- "$stage"
-  if [ "$grafana_stopped" -eq 1 ]; then docker compose start grafana >/dev/null; fi
+  if [ "$grafana_stopped" -eq 1 ]; then
+    docker compose up -d --no-deps grafana >/dev/null
+  fi
 }
 trap cleanup EXIT
 
@@ -39,7 +41,7 @@ docker compose stop grafana >/dev/null
 grafana_stopped=1
 docker run --rm --volume open-security-lakehouse_grafana-data:/data:ro \
   --entrypoint tar grafana/grafana:13.2.1 -C /data -cf - . > "$stage/grafana.tar"
-docker compose start grafana >/dev/null
+docker compose up -d --no-deps grafana >/dev/null
 grafana_stopped=0
 
 cp .env "$stage/environment.env"
