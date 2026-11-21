@@ -1,0 +1,12 @@
+id: lake-compaction-failures
+title: Lake compaction failure
+description: Detects a failed scheduled compaction of security telemetry objects.
+severity: high
+enabled: true
+schedule_minutes: 5
+threshold: 1
+lookback_minutes: 10
+query:
+  source: linux-syslog
+  message_contains: OSL lake compaction failed
+  limit: 1000

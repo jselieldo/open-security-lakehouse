@@ -325,6 +325,12 @@ After confirming a current encrypted backup, apply non-destructive compaction:
 ./scripts/compact-lake.sh apply
 ```
 
+After the first verified manual run, install bounded hourly compaction:
+
+```bash
+./scripts/install-lake-compaction.sh
+```
+
 Original normalized batches and raw evidence remain preserved. Investigation switches to a
 compacted partition only after its output is verified and its completion manifest is written.
 See [the lake compaction runbook](docs/runbooks/lake-compaction.md).

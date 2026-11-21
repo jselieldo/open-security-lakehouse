@@ -66,3 +66,26 @@ prints partition, source-object, compact-object, and row totals as JSON for oper
 
 Original normalized batches remain available for lineage and rollback. Deleting them is a
 separate future retention decision and must not be combined with routine compaction.
+
+## Scheduled homelab compaction
+
+Install the hourly timer after the first manual compaction and verified backup:
+
+```bash
+./scripts/install-lake-compaction.sh
+```
+
+The timer includes the active UTC day, but reads late arrivals alongside the verified compact
+object. It requires at least 100 newly eligible objects, uses a non-blocking host lock, limits
+the maintenance container to 6 GB, and terminates a run after 40 minutes. A randomized delay
+prevents all hourly jobs from starting at exactly the same time. Failures are written to
+`authpriv.err` with tag `osl-compaction`; the `lake-compaction-failures` rule creates a
+high-severity alert after the event reaches the lake.
+
+Inspect the schedule and the latest execution:
+
+```bash
+systemctl list-timers osl-lake-compaction.timer
+systemctl status osl-lake-compaction.service
+journalctl -u osl-lake-compaction.service -n 100 --no-pager
+```

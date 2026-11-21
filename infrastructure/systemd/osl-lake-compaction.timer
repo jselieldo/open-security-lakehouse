@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly Open Security Lakehouse compaction
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5m
+Persistent=true
+Unit=osl-lake-compaction.service
+
+[Install]
+WantedBy=timers.target
