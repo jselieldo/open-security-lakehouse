@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 MAX_MESSAGE_LENGTH = 16_384
-MAX_BATCH_SIZE = 100
+MAX_BATCH_SIZE = 1000
 DOCKER_BINARY = "/usr/bin/docker"
 
 

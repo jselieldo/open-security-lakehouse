@@ -69,7 +69,8 @@ root-owned credential file.
 # Docker application logs
 
 The installer also enables `osl-docker-log-collector.service`. It polls `stdout` and
-`stderr` through the host Docker CLI, sends batches to `/api/v1/ingestion/docker-logs`, and
+`stderr` through the host Docker CLI, sends batches of up to 1,000 events to
+`/api/v1/ingestion/docker-logs`, and
 stores a per-container checkpoint under `/var/lib/osl-docker-log-collector/`. Messages are
 limited to 16 KiB; container environment variables and labels are not collected.
 

@@ -98,3 +98,23 @@ def test_unexpected_batch_status_still_fails(monkeypatch) -> None:
         collector.send_batches(
             "http://127.0.0.1/ingest", "test-token", [{"message": "x"}]
         )
+
+
+def test_log_sender_uses_lake_friendly_batches(monkeypatch) -> None:
+    collector = load_collector()
+    batch_lengths: list[int] = []
+
+    def fake_open(request, timeout):
+        batch_lengths.append(len(json.loads(request.data)))
+        response = io.BytesIO(json.dumps({"status": "completed"}).encode())
+        response.__enter__ = lambda value: value
+        response.__exit__ = lambda *_args: None
+        return response
+
+    monkeypatch.setattr(collector.urllib.request, "urlopen", fake_open)
+    collector.send_batches(
+        "http://127.0.0.1/ingest",
+        "test-token",
+        [{"message": str(index)} for index in range(1001)],
+    )
+    assert batch_lengths == [1000, 1]
